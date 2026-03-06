@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: securevote-mongo
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: securevote-backend
+    ports:
+      - "5001:5001"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-securevote-prototype-secret-key}
+      - MONGO_URI=mongodb://mongodb:27017/securevote
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - FRONTEND_URL=http://localhost:3000
+      - RSA_KEY_PASSPHRASE=${RSA_KEY_PASSPHRASE:-}
+      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}
+      - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-SecureVote}
+      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN:-http://localhost:3000}
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: http://localhost:5001
+    container_name: securevote-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

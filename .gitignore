@@ -1,1 +1,22 @@
 node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Security-sensitive files
+backend/keys/
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
