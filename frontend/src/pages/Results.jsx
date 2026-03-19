@@ -16,7 +16,7 @@ const Results = () => {
 
   useEffect(() => {
     if (selectedElection) loadResults();
-  }, [selectedElection]);
+  }, [selectedElection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadElections = async () => {
     try {

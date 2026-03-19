@@ -33,10 +33,6 @@ const AdminSidebar = ({ active, onLogout }) => {
             <Link
               key={l.href}
               to={l.href}
-              style={{
-                textDecoration: 'none',
-                borderLeft: `2px solid ${isActive ? 'var(--sv-cyan)' : 'transparent'}`,
-              }}
               className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
                   ? 'text-white'

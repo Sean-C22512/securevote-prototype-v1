@@ -68,7 +68,7 @@ const AuditLog = () => {
 
   useEffect(() => {
     if (selectedElection !== undefined) loadStats();
-  }, [selectedElection]);
+  }, [selectedElection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     try {

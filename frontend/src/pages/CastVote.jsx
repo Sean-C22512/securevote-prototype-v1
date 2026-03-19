@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gem, LogOut, CheckCircle2, AlertCircle, ChevronLeft, Vote, Loader2, Check } from 'lucide-react';
+import { Gem, LogOut, AlertCircle, ChevronLeft, Vote, Loader2, Check } from 'lucide-react';
 import { fetchElections, castVote } from '../api/apiClient';
 
 const StudentNav = ({ handleLogout, activePage }) => (
