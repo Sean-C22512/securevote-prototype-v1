@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Gem } from 'lucide-react';
 import { register, getPasswordRequirements } from '../api/apiClient';
+import DOMPurify from 'dompurify';
 
 const Register = () => {
   const [studentId,       setStudentId]       = useState('');
@@ -33,7 +34,9 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await register(studentId, password, email || undefined);
+      const cleanStudentId = DOMPurify.sanitize(studentId.trim());
+      const cleanEmail     = email ? DOMPurify.sanitize(email.trim()) : undefined;
+      await register(cleanStudentId, password, cleanEmail);
       setSuccess('Registration successful! Redirecting to login\u2026');
       setTimeout(() => navigate('/'), 2000);
     } catch (err) {

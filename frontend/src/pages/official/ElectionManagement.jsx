@@ -7,6 +7,7 @@ import {
   fetchElections, createElection, updateElection, deleteElection,
   startElection, endElection, addCandidate, removeCandidate,
 } from '../../api/apiClient';
+import DOMPurify from 'dompurify';
 
 const Modal = ({ show, onClose, title, children }) => (
   <AnimatePresence>
@@ -85,10 +86,14 @@ const ElectionManagement = () => {
     setError('');
     try {
       const payload = {
-        ...newElection,
-        candidates: newElection.candidates
+        title:       DOMPurify.sanitize(newElection.title.trim()),
+        description: DOMPurify.sanitize(newElection.description.trim()),
+        candidates:  newElection.candidates
           .filter(c => c.name.trim())
-          .map(c => ({ name: c.name.trim(), party: c.party.trim() || undefined })),
+          .map(c => ({
+            name:  DOMPurify.sanitize(c.name.trim()),
+            party: c.party.trim() ? DOMPurify.sanitize(c.party.trim()) : undefined,
+          })),
       };
       if (payload.candidates.length < 2) { setError('At least 2 candidates are required'); return; }
       await createElection(payload);
@@ -106,8 +111,8 @@ const ElectionManagement = () => {
     setError('');
     try {
       await updateElection(selectedElection.election_id, {
-        title: selectedElection.title,
-        description: selectedElection.description,
+        title:       DOMPurify.sanitize(selectedElection.title.trim()),
+        description: DOMPurify.sanitize((selectedElection.description || '').trim()),
       });
       flash('Election updated successfully');
       setShowEditModal(false);
@@ -154,7 +159,10 @@ const ElectionManagement = () => {
     e.preventDefault();
     setError('');
     try {
-      await addCandidate(selectedElection.election_id, newCandidate);
+      await addCandidate(selectedElection.election_id, {
+        name:        DOMPurify.sanitize(newCandidate.name.trim()),
+        description: DOMPurify.sanitize((newCandidate.description || '').trim()),
+      });
       flash('Candidate added');
       setNewCandidate({ name: '', description: '' });
       loadElections();
