@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Fingerprint, Key, Plus, ChevronLeft, CheckCircle2, Loader2, Gem } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { getCurrentUser, webAuthnRegisterBegin, webAuthnRegisterComplete } from '../api/apiClient';
 
 const WebAuthnSetup = () => {
-  const [credentials, setCredentials] = useState([]);
-  const [credentialCount, setCredentialCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [registering, setRegistering] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [credentials,      setCredentials]      = useState([]);
+  const [credentialCount,  setCredentialCount]  = useState(0);
+  const [loading,          setLoading]          = useState(true);
+  const [registering,      setRegistering]      = useState(false);
+  const [message,          setMessage]          = useState('');
+  const [error,            setError]            = useState('');
 
   const loadCredentials = useCallback(async () => {
     try {
@@ -23,25 +25,16 @@ const WebAuthnSetup = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadCredentials();
-  }, [loadCredentials]);
+  useEffect(() => { loadCredentials(); }, [loadCredentials]);
 
   const handleAddBiometric = async () => {
     setError('');
     setMessage('');
     setRegistering(true);
-
     try {
-      // Step 1: get registration options from server
-      const options = await webAuthnRegisterBegin();
-
-      // Step 2: invoke browser's WebAuthn API (triggers TouchID / FaceID / Hello)
+      const options              = await webAuthnRegisterBegin();
       const registrationResponse = await startRegistration(options);
-
-      // Step 3: send result to server for verification
       await webAuthnRegisterComplete(registrationResponse);
-
       setMessage('Biometric added successfully!');
       await loadCredentials();
     } catch (err) {
@@ -58,87 +51,144 @@ const WebAuthnSetup = () => {
   };
 
   return (
-    <div className="min-vh-100" style={{ backgroundColor: '#F8F9FA' }}>
-      <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div className="container">
-          <span className="navbar-brand fw-bold" style={{ color: '#6f42c1' }}>SecureVote</span>
+    <div className="sv-bg min-h-screen">
+
+      {/* Nav */}
+      <nav className="sv-nav px-6 py-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Gem className="w-4 h-4 text-tud-cyan" />
+            <span className="font-display font-bold text-white text-sm tracking-wide">SecureVote</span>
+          </div>
         </div>
       </nav>
 
-      <div className="container py-5" style={{ maxWidth: '640px' }}>
-        <div className="mb-4">
-          <Link to="/dashboard" className="text-decoration-none text-muted" style={{ fontSize: '0.9rem' }}>
-            &larr; Back to Dashboard
-          </Link>
-        </div>
+      <div className="max-w-2xl mx-auto px-6 py-12">
 
-        <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-          <div className="card-body p-5">
-            <h2 className="fw-bold mb-1">Biometric Login</h2>
-            <p className="text-muted mb-4">
-              Register your device's biometric (TouchID, FaceID, or Windows Hello) as a
-              passwordless login method.
-            </p>
+        <Link to="/dashboard"
+              style={{ textDecoration: 'none' }}
+              className="sv-btn-ghost pl-0 text-xs mb-10 inline-flex">
+          <ChevronLeft className="w-3.5 h-3.5" /> Back to Dashboard
+        </Link>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.38 }}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-4 mb-10">
+            <div className="w-12 h-12 flex items-center justify-center shrink-0"
+                 style={{ background: 'rgba(0,159,227,0.08)', border: '1px solid rgba(0,159,227,0.16)', borderRadius: 2 }}>
+              <Fingerprint className="w-6 h-6 text-tud-cyan" />
+            </div>
+            <div>
+              <p className="font-mono text-[10px] tracking-[0.16em] mb-1" style={{ color: 'var(--sv-text-muted)' }}>
+                SECURITY
+              </p>
+              <h1 className="font-display font-bold text-white text-2xl" style={{ letterSpacing: '-0.02em' }}>
+                Biometric Login
+              </h1>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--sv-text-dim)' }}>
+                Register TouchID, FaceID, or Windows Hello
+              </p>
+            </div>
+          </div>
+
+          <div className="sv-card p-8">
 
             {message && (
-              <div className="alert alert-success">{message}</div>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="sv-alert-success mb-6"
+              >
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> {message}
+              </motion.div>
             )}
+
             {error && (
-              <div className="alert alert-danger">{error}</div>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="sv-alert-error mb-6"
+              >
+                {error}
+              </motion.div>
             )}
 
-            {loading ? (
-              <p className="text-muted">Loading credentials&hellip;</p>
-            ) : (
-              <>
-                <h5 className="fw-semibold mb-3">
-                  Registered devices
-                  {credentialCount > 0 && (
-                    <span className="badge ms-2" style={{ backgroundColor: '#6f42c1', fontSize: '0.75rem' }}>
-                      {credentialCount}
-                    </span>
-                  )}
-                </h5>
-
-                {credentials.length === 0 ? (
-                  <p className="text-muted fst-italic mb-4">No biometric devices registered yet.</p>
-                ) : (
-                  <ul className="list-group list-group-flush mb-4">
-                    {credentials.map((cred, i) => (
-                      <li key={cred.credential_id || i} className="list-group-item px-0">
-                        <div className="d-flex align-items-center">
-                          <span className="me-3" style={{ fontSize: '1.4rem' }}>&#128273;</span>
-                          <div>
-                            <div className="fw-medium">{cred.friendly_name || 'Passkey'}</div>
-                            {cred.created_at && (
-                              <small className="text-muted">
-                                Added {new Date(cred.created_at).toLocaleDateString()}
-                              </small>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+            {/* Registered devices section */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <p className="sv-label" style={{ marginBottom: 0 }}>Registered Devices</p>
+                {credentialCount > 0 && (
+                  <span className="sv-badge-official">{credentialCount} active</span>
                 )}
+              </div>
 
-                <button
-                  className="submit-btn"
-                  onClick={handleAddBiometric}
-                  disabled={registering}
-                  style={{ width: 'auto', paddingLeft: '2rem', paddingRight: '2rem' }}
-                >
-                  {registering ? 'Waiting for biometric\u2026' : '\uD83D\uDD10 Add Biometric'}
-                </button>
-              </>
-            )}
+              {loading ? (
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--sv-text-muted)' }}>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="font-mono text-xs tracking-[0.10em]">LOADING&hellip;</span>
+                </div>
+
+              ) : credentials.length === 0 ? (
+                <div className="flex items-center gap-3 p-4"
+                     style={{ border: '1px solid var(--sv-border)', borderRadius: 2,
+                              background: 'rgba(228,235,248,0.02)' }}>
+                  <Key className="w-4 h-4 shrink-0" style={{ color: 'var(--sv-text-muted)' }} />
+                  <p className="text-sm italic" style={{ color: 'var(--sv-text-muted)' }}>
+                    No biometric devices registered yet.
+                  </p>
+                </div>
+
+              ) : (
+                <div className="space-y-2">
+                  {credentials.map((cred, i) => (
+                    <div key={cred.credential_id || i}
+                         className="flex items-center gap-3 p-4"
+                         style={{ border: '1px solid rgba(0,159,227,0.14)', borderRadius: 2,
+                                  background: 'rgba(0,159,227,0.04)' }}>
+                      <Key className="w-4 h-4 shrink-0 text-tud-cyan" />
+                      <div className="flex-1">
+                        <p className="font-display font-semibold text-white text-sm">
+                          {cred.friendly_name || 'Passkey'}
+                        </p>
+                        {cred.created_at && (
+                          <p className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--sv-text-muted)' }}>
+                            Added {new Date(cred.created_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <span className="sv-badge-official">Active</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="sv-divider mb-8" />
+
+            <motion.button
+              whileHover={{ scale: registering ? 1 : 1.012 }}
+              whileTap={{ scale: registering ? 1 : 0.988 }}
+              onClick={handleAddBiometric}
+              disabled={registering}
+              className="sv-btn-primary"
+            >
+              {registering
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Waiting for biometric&hellip;</>
+                : <><Plus className="w-3.5 h-3.5" /> Add Biometric</>
+              }
+            </motion.button>
           </div>
-        </div>
 
-        <p className="text-muted mt-4" style={{ fontSize: '0.8rem' }}>
-          Your biometric credential is stored only on this device. The private key never leaves
-          your device's Secure Enclave.
-        </p>
+          <p className="font-mono text-[10px] leading-relaxed tracking-[0.08em] mt-5"
+             style={{ color: 'var(--sv-text-muted)' }}>
+            Your biometric credential is stored only on this device.
+            The private key never leaves your device&apos;s Secure Enclave.
+          </p>
+        </motion.div>
       </div>
     </div>
   );

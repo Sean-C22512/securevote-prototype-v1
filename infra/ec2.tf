@@ -1,0 +1,98 @@
+# Amazon Linux 2023 ARM64 (eu-west-1) — update if switching region
+data "aws_ami" "al2023_arm" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-arm64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
+}
+
+resource "aws_security_group" "securevote_sg" {
+  name        = "securevote-sg"
+  description = "SecureVote backend security group"
+
+  # SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Flask API
+  ingress {
+    from_port   = 5001
+    to_port     = 5001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTPS
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "securevote_backend" {
+  ami                    = data.aws_ami.al2023_arm.id
+  instance_type          = "t4g.nano"
+  key_name               = var.key_pair_name
+  vpc_security_group_ids = [aws_security_group.securevote_sg.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    dnf update -y
+    dnf install -y docker git
+    systemctl enable docker
+    systemctl start docker
+    usermod -aG docker ec2-user
+
+    # Install docker compose plugin
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64 \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    # Write env file for backend
+    mkdir -p /app
+    cat > /app/.env <<ENVFILE
+    SECRET_KEY=${var.secret_key}
+    MONGO_URI=${var.mongo_uri}
+    FLASK_ENV=production
+    RSA_KEY_PASSPHRASE=${var.rsa_key_passphrase}
+    WEBAUTHN_RP_ID=api.securevote.ie
+    WEBAUTHN_RP_NAME=SecureVote
+    WEBAUTHN_ORIGIN=https://www.securevote.ie
+    ENVFILE
+  EOF
+
+  tags = {
+    Name    = "securevote-backend"
+    Project = "SecureVote"
+  }
+}

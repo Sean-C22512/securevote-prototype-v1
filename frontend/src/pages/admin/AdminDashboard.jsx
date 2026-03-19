@@ -1,26 +1,117 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Gem, Users, Vote, Link2, Settings, ClipboardList, LogOut, ArrowRight, Activity } from 'lucide-react';
 import { fetchUsers, fetchAuditStats } from '../../api/apiClient';
 
+const AdminSidebar = ({ active, onLogout }) => {
+  const links = [
+    { icon: <Activity    className="w-3.5 h-3.5" />, label: 'Dashboard',       href: '/admin' },
+    { icon: <Users       className="w-3.5 h-3.5" />, label: 'User Management', href: '/admin/users' },
+    { icon: <ClipboardList className="w-3.5 h-3.5" />, label: 'Audit Log',     href: '/admin/audit' },
+    { icon: <Settings    className="w-3.5 h-3.5" />, label: 'Elections',        href: '/official' },
+  ];
+  return (
+    <aside className="sv-sidebar">
+      {/* Logo */}
+      <div className="px-4 mb-10">
+        <div className="flex items-center gap-2 mb-1">
+          <Gem className="w-4 h-4 text-tud-cyan" />
+          <span className="font-display font-bold text-white text-sm tracking-wide">SecureVote</span>
+        </div>
+        <p className="font-mono text-[9px] tracking-[0.20em] ml-6"
+           style={{ color: 'var(--sv-magenta)', letterSpacing: '0.18em' }}>
+          ADMIN CONSOLE
+        </p>
+      </div>
+
+      {/* Nav links */}
+      <nav className="flex-1 px-2 space-y-0.5">
+        {links.map((l) => {
+          const isActive = l.href === active;
+          return (
+            <Link
+              key={l.href}
+              to={l.href}
+              style={{
+                textDecoration: 'none',
+                borderLeft: `2px solid ${isActive ? 'var(--sv-cyan)' : 'transparent'}`,
+              }}
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'text-white'
+                  : 'hover:text-white/70'
+              }`}
+              style={{
+                textDecoration: 'none',
+                borderLeft: `2px solid ${isActive ? 'var(--sv-cyan)' : 'transparent'}`,
+                color: isActive ? 'white' : 'rgba(228,235,248,0.32)',
+              }}
+            >
+              <span style={{ color: isActive ? 'var(--sv-cyan)' : 'inherit' }}>{l.icon}</span>
+              <span>{l.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Logout */}
+      <div className="px-2 mt-auto">
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-3 px-3 py-2.5 text-sm w-full text-left transition-colors"
+          style={{ color: 'rgba(228,235,248,0.22)', background: 'none', border: 'none', cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--sv-magenta)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(228,235,248,0.22)'}
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+  );
+};
+
+const StatCard = ({ label, value, icon, color, loading, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 14 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.38 }}
+    className="sv-card-admin p-5"
+  >
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="font-mono text-[10px] tracking-[0.14em] uppercase mb-3"
+           style={{ color: 'rgba(228,235,248,0.30)' }}>
+          {label}
+        </p>
+        <p className={`font-display font-black animate-flicker`}
+           style={{ fontSize: 40, lineHeight: 1, color: loading ? 'rgba(228,235,248,0.10)' : color }}>
+          {loading ? '—' : value}
+        </p>
+      </div>
+      <div className="w-9 h-9 flex items-center justify-center"
+           style={{ background: 'rgba(228,235,248,0.04)', border: '1px solid rgba(228,235,248,0.06)', borderRadius: 2 }}>
+        <span style={{ color }}>{icon}</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
 const AdminDashboard = () => {
-  const [stats, setStats] = useState({ users: 0, totalVotes: 0, chainValid: true });
+  const [stats,   setStats]   = useState({ users: 0, totalVotes: 0, chainValid: true });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  useEffect(() => { loadStats(); }, []);
 
   const loadStats = async () => {
     try {
-      const [usersData, auditData] = await Promise.all([
-        fetchUsers(),
-        fetchAuditStats()
-      ]);
+      const [usersData, auditData] = await Promise.all([fetchUsers(), fetchAuditStats()]);
       setStats({
-        users: usersData.users?.length || 0,
+        users:      usersData.users?.length || 0,
         totalVotes: auditData.total_votes || 0,
-        chainValid: auditData.chain_valid !== false
+        chainValid: auditData.chain_valid !== false,
       });
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -36,140 +127,108 @@ const AdminDashboard = () => {
     navigate('/');
   };
 
+  const actionCards = [
+    {
+      icon:  <Users className="w-5 h-5" style={{ color: 'var(--sv-cyan)' }} />,
+      title: 'User Management',
+      desc:  'Manage user accounts and role assignments',
+      href:  '/admin/users',
+    },
+    {
+      icon:  <ClipboardList className="w-5 h-5" style={{ color: 'var(--sv-cyan)' }} />,
+      title: 'Audit Log',
+      desc:  'Blockchain verification and system security audit',
+      href:  '/admin/audit',
+    },
+  ];
+
   return (
-    <div className="min-vh-100" style={{ backgroundColor: '#F8F9FA' }}>
-      {/* Navigation */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div className="container">
-          <span className="navbar-brand fw-bold" style={{ color: '#6f42c1' }}>
-            SecureVote Admin
-          </span>
-          <div className="d-flex align-items-center gap-3">
-            <Link to="/official" className="btn btn-outline-secondary btn-sm">
-              Election Management
-            </Link>
-            <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen flex sv-bg-admin">
+      <AdminSidebar active="/admin" onLogout={handleLogout} />
 
-      {/* Main Content */}
-      <div className="container py-5">
-        <div className="mb-5">
-          <h1 className="fw-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted">System administration and monitoring</p>
-        </div>
+      <main className="flex-1 p-8 overflow-auto">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+          <p className="font-mono text-[10px] tracking-[0.16em] mb-2"
+             style={{ color: 'rgba(228,235,248,0.25)' }}>
+            SYSTEM OVERVIEW
+          </p>
+          <h1 className="font-display font-black text-white"
+              style={{ fontSize: 28, letterSpacing: '-0.02em' }}>
+            Admin Dashboard
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(228,235,248,0.40)' }}>
+            System administration &amp; monitoring
+          </p>
+        </motion.div>
 
-        {/* Stats Cards */}
-        <div className="row g-4 mb-5">
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1">Total Users</p>
-                    <h2 className="fw-bold mb-0" style={{ color: '#6f42c1' }}>
-                      {loading ? '...' : stats.users}
-                    </h2>
-                  </div>
-                  <div className="rounded-circle p-3" style={{ backgroundColor: '#f3f0ff' }}>
-                    <svg width="24" height="24" fill="#6f42c1" viewBox="0 0 16 16">
-                      <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                      <path fillRule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-                      <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1">Total Votes Cast</p>
-                    <h2 className="fw-bold mb-0" style={{ color: '#6f42c1' }}>
-                      {loading ? '...' : stats.totalVotes}
-                    </h2>
-                  </div>
-                  <div className="rounded-circle p-3" style={{ backgroundColor: '#f3f0ff' }}>
-                    <svg width="24" height="24" fill="#6f42c1" viewBox="0 0 16 16">
-                      <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm5.5 1.5v2a1 1 0 0 0 1 1h2l-3-3zM6.354 9.854a.5.5 0 0 0-.708-.708L4.5 10.293l-.646-.647a.5.5 0 1 0-.708.708l1 1a.5.5 0 0 0 .708 0l1.5-1.5z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1">Blockchain Status</p>
-                    <h2 className="fw-bold mb-0" style={{ color: stats.chainValid ? '#198754' : '#dc3545' }}>
-                      {loading ? '...' : (stats.chainValid ? 'Valid' : 'Invalid')}
-                    </h2>
-                  </div>
-                  <div className="rounded-circle p-3" style={{ backgroundColor: stats.chainValid ? '#d1e7dd' : '#f8d7da' }}>
-                    <svg width="24" height="24" fill={stats.chainValid ? '#198754' : '#dc3545'} viewBox="0 0 16 16">
-                      <path d="M9.05.435c-.58-.58-1.52-.58-2.1 0L.436 6.95c-.58.58-.58 1.519 0 2.098l6.516 6.516c.58.58 1.519.58 2.098 0l6.516-6.516c.58-.58.58-1.519 0-2.098L9.05.435zM8 4c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995A.905.905 0 0 1 8 4zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+          <StatCard
+            label="Total Users"
+            value={stats.users}
+            icon={<Users className="w-4 h-4" />}
+            color="var(--sv-cyan)"
+            loading={loading}
+            delay={0}
+          />
+          <StatCard
+            label="Votes Cast"
+            value={stats.totalVotes}
+            icon={<Vote className="w-4 h-4" />}
+            color="var(--sv-lime)"
+            loading={loading}
+            delay={0.08}
+          />
+          <StatCard
+            label="Chain Status"
+            value={stats.chainValid ? 'Valid' : 'Invalid'}
+            icon={<Link2 className="w-4 h-4" />}
+            color={stats.chainValid ? 'var(--sv-lime)' : 'var(--sv-magenta)'}
+            loading={loading}
+            delay={0.16}
+          />
         </div>
 
-        {/* Action Cards */}
-        <div className="row g-4">
-          <div className="col-md-6">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body text-center p-5">
-                <div className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center"
-                     style={{ width: '80px', height: '80px', backgroundColor: '#f3f0ff' }}>
-                  <svg width="36" height="36" fill="#6f42c1" viewBox="0 0 16 16">
-                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                    <path fillRule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-                    <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-                  </svg>
-                </div>
-                <h3 className="fw-bold mb-2">User Management</h3>
-                <p className="text-muted mb-4">Manage users, roles, and permissions</p>
-                <Link to="/admin/users" className="submit-btn text-decoration-none d-inline-block px-5 py-3">
-                  Manage Users
-                </Link>
-              </div>
-            </div>
-          </div>
+        {/* Divider */}
+        <div className="mb-8" style={{ height: 1, background: 'rgba(0,159,227,0.07)' }} />
 
-          <div className="col-md-6">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body text-center p-5">
-                <div className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center"
-                     style={{ width: '80px', height: '80px', backgroundColor: '#f3f0ff' }}>
-                  <svg width="36" height="36" fill="#6f42c1" viewBox="0 0 16 16">
-                    <path d="M5 10.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
-                    <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z"/>
-                    <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1z"/>
-                  </svg>
+        {/* Action cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {actionCards.map((card, i) => (
+            <motion.div
+              key={card.href}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28 + i * 0.08 }}
+            >
+              <Link
+                to={card.href}
+                className="sv-card-admin group p-6 relative overflow-hidden"
+                style={{
+                  textDecoration: 'none', display: 'block',
+                  transition: 'border-color 0.2s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,159,227,0.22)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(0,159,227,0.08)'}
+              >
+                <div className="w-10 h-10 flex items-center justify-center mb-4"
+                     style={{ background: 'rgba(0,159,227,0.07)', border: '1px solid rgba(0,159,227,0.12)', borderRadius: 2 }}>
+                  {card.icon}
                 </div>
-                <h3 className="fw-bold mb-2">Audit Log</h3>
-                <p className="text-muted mb-4">View system audit and blockchain verification</p>
-                <Link to="/admin/audit" className="submit-btn text-decoration-none d-inline-block px-5 py-3">
-                  View Audit Log
-                </Link>
-              </div>
-            </div>
-          </div>
+                <h3 className="font-display font-bold text-white mb-1 text-sm">{card.title}</h3>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(228,235,248,0.40)' }}>
+                  {card.desc}
+                </p>
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.10em] uppercase"
+                      style={{ color: 'var(--sv-cyan)' }}>
+                  Open <ArrowRight className="w-3 h-3" />
+                </span>
+              </Link>
+            </motion.div>
+          ))}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,36 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Gem, Activity, Users, ClipboardList, Settings, LogOut,
+         CheckCircle2, Loader2, Terminal } from 'lucide-react';
 import { verifyChain, fetchAuditStats, fetchElections } from '../../api/apiClient';
 
+const AdminSidebar = ({ active, onLogout }) => {
+  const links = [
+    { icon: <Activity      className="w-3.5 h-3.5" />, label: 'Dashboard',       href: '/admin' },
+    { icon: <Users         className="w-3.5 h-3.5" />, label: 'User Management', href: '/admin/users' },
+    { icon: <ClipboardList className="w-3.5 h-3.5" />, label: 'Audit Log',       href: '/admin/audit' },
+    { icon: <Settings      className="w-3.5 h-3.5" />, label: 'Elections',        href: '/official' },
+  ];
+  return (
+    <aside className="sv-sidebar">
+      <div className="px-4 mb-10">
+        <div className="flex items-center gap-2 mb-1">
+          <Gem className="w-4 h-4 text-tud-cyan" />
+          <span className="font-display font-bold text-white text-sm tracking-wide">SecureVote</span>
+        </div>
+        <p className="font-mono text-[9px] tracking-[0.20em] ml-6" style={{ color: 'var(--sv-magenta)' }}>
+          ADMIN CONSOLE
+        </p>
+      </div>
+      <nav className="flex-1 px-2 space-y-0.5">
+        {links.map((l) => {
+          const isActive = l.href === active;
+          return (
+            <Link key={l.href} to={l.href}
+              style={{
+                textDecoration: 'none',
+                borderLeft: `2px solid ${isActive ? 'var(--sv-cyan)' : 'transparent'}`,
+                color: isActive ? 'white' : 'rgba(228,235,248,0.32)',
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors"
+            >
+              <span style={{ color: isActive ? 'var(--sv-cyan)' : 'inherit' }}>{l.icon}</span>
+              <span>{l.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="px-2 mt-auto">
+        <button onClick={onLogout}
+          className="flex items-center gap-3 px-3 py-2.5 text-sm w-full text-left"
+          style={{ color: 'rgba(228,235,248,0.22)', background: 'none', border: 'none', cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--sv-magenta)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(228,235,248,0.22)'}>
+          <LogOut className="w-3.5 h-3.5" /><span>Logout</span>
+        </button>
+      </div>
+    </aside>
+  );
+};
+
 const AuditLog = () => {
-  const [stats, setStats] = useState(null);
-  const [elections, setElections] = useState([]);
-  const [selectedElection, setSelectedElection] = useState('');
+  const [stats,              setStats]              = useState(null);
+  const [elections,          setElections]          = useState([]);
+  const [selectedElection,   setSelectedElection]   = useState('');
   const [verificationResult, setVerificationResult] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState('');
+  const [loading,            setLoading]            = useState(true);
+  const [verifying,          setVerifying]          = useState(false);
+  const [error,              setError]              = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    if (selectedElection !== undefined) {
-      loadStats();
-    }
+    if (selectedElection !== undefined) loadStats();
   }, [selectedElection]);
 
   const loadData = async () => {
     try {
-      const [electionsData, statsData] = await Promise.all([
-        fetchElections(),
-        fetchAuditStats()
-      ]);
+      const [electionsData, statsData] = await Promise.all([fetchElections(), fetchAuditStats()]);
       setElections(electionsData.elections || []);
       setStats(statsData);
-    } catch (err) {
+    } catch {
       setError('Failed to load audit data');
     } finally {
       setLoading(false);
@@ -41,7 +86,7 @@ const AuditLog = () => {
     try {
       const statsData = await fetchAuditStats(selectedElection || null);
       setStats(statsData);
-    } catch (err) {
+    } catch {
       console.error('Failed to load stats');
     }
   };
@@ -53,7 +98,7 @@ const AuditLog = () => {
     try {
       const result = await verifyChain(selectedElection || null);
       setVerificationResult(result);
-    } catch (err) {
+    } catch {
       setError('Verification failed');
     } finally {
       setVerifying(false);
@@ -67,176 +112,149 @@ const AuditLog = () => {
     navigate('/');
   };
 
+  const statItems = stats ? [
+    { label: 'Total Votes',   value: stats.total_votes  || 0,  color: 'var(--sv-cyan)' },
+    { label: 'Chain Length',  value: stats.chain_length || 0,  color: 'var(--sv-lime)' },
+    { label: 'Chain Status',  value: stats.chain_valid !== false ? 'Valid' : 'Invalid',
+      color: stats.chain_valid !== false ? 'var(--sv-lime)' : 'var(--sv-magenta)' },
+    { label: 'Unique Voters', value: stats.unique_voters || 0, color: 'var(--sv-cyan)' },
+  ] : [];
+
   return (
-    <div className="min-vh-100" style={{ backgroundColor: '#F8F9FA' }}>
-      {/* Navigation */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div className="container">
-          <Link to="/admin" className="navbar-brand fw-bold" style={{ color: '#6f42c1' }}>
-            SecureVote Admin
-          </Link>
-          <div className="d-flex align-items-center gap-3">
-            <Link to="/admin" className="btn btn-outline-secondary btn-sm">
-              Back to Dashboard
-            </Link>
-            <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen flex sv-bg-admin">
+      <AdminSidebar active="/admin/audit" onLogout={handleLogout} />
 
-      {/* Main Content */}
-      <div className="container py-5">
-        <div className="mb-5">
-          <h1 className="fw-bold mb-2">Audit Log</h1>
-          <p className="text-muted">Blockchain verification and system audit</p>
-        </div>
+      <main className="flex-1 p-8 overflow-auto">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+          <p className="font-mono text-[10px] tracking-[0.16em] mb-2"
+             style={{ color: 'rgba(228,235,248,0.25)' }}>
+            BLOCKCHAIN AUDIT
+          </p>
+          <h1 className="font-display font-black text-white"
+              style={{ fontSize: 28, letterSpacing: '-0.02em' }}>
+            Audit Log
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(228,235,248,0.40)' }}>
+            Blockchain verification &amp; system audit
+          </p>
+        </motion.div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && <div className="sv-alert-error mb-5">{error}</div>}
 
-        {/* Filter by Election */}
-        <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-          <div className="card-body p-4">
-            <div className="row align-items-end">
-              <div className="col-md-6">
-                <label className="form-label fw-medium">Filter by Election</label>
-                <select
-                  className="form-select"
-                  value={selectedElection}
-                  onChange={(e) => setSelectedElection(e.target.value)}
-                >
-                  <option value="">All Elections</option>
-                  {elections.map((election) => (
-                    <option key={election.election_id} value={election.election_id}>
-                      {election.title} ({election.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-6 text-md-end mt-3 mt-md-0">
-                <button
-                  className="submit-btn px-4 py-2"
-                  onClick={handleVerify}
-                  disabled={verifying}
-                >
-                  {verifying ? 'Verifying...' : 'Verify Blockchain'}
-                </button>
-              </div>
+        {/* Filter + verify */}
+        <div className="sv-card-admin p-5 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label className="sv-label">Filter by Election</label>
+              <select
+                className="sv-input-box"
+                value={selectedElection}
+                onChange={(e) => setSelectedElection(e.target.value)}
+              >
+                <option value="">All Elections</option>
+                {elections.map((e) => (
+                  <option key={e.election_id} value={e.election_id}>
+                    {e.title} ({e.status})
+                  </option>
+                ))}
+              </select>
             </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleVerify}
+              disabled={verifying}
+              className="sv-btn-primary shrink-0"
+            >
+              {verifying
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying&hellip;</>
+                : <><CheckCircle2 className="w-3.5 h-3.5" /> Verify Blockchain</>
+              }
+            </motion.button>
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         {loading ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-secondary" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
+          <div className="flex items-center gap-2 py-10"
+               style={{ color: 'rgba(228,235,248,0.30)' }}>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="font-mono text-xs tracking-[0.10em]">LOADING&hellip;</span>
           </div>
         ) : stats && (
-          <div className="row g-4 mb-4">
-            <div className="col-md-3">
-              <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                <div className="card-body p-4 text-center">
-                  <p className="text-muted mb-2">Total Votes</p>
-                  <h2 className="fw-bold mb-0" style={{ color: '#6f42c1' }}>
-                    {stats.total_votes || 0}
-                  </h2>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                <div className="card-body p-4 text-center">
-                  <p className="text-muted mb-2">Chain Length</p>
-                  <h2 className="fw-bold mb-0" style={{ color: '#6f42c1' }}>
-                    {stats.chain_length || 0}
-                  </h2>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                <div className="card-body p-4 text-center">
-                  <p className="text-muted mb-2">Chain Status</p>
-                  <h2 className="fw-bold mb-0" style={{ color: stats.chain_valid !== false ? '#198754' : '#dc3545' }}>
-                    {stats.chain_valid !== false ? 'Valid' : 'Invalid'}
-                  </h2>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                <div className="card-body p-4 text-center">
-                  <p className="text-muted mb-2">Unique Voters</p>
-                  <h2 className="fw-bold mb-0" style={{ color: '#6f42c1' }}>
-                    {stats.unique_voters || 0}
-                  </h2>
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {statItems.map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="sv-card-admin p-4 text-center"
+              >
+                <p className="font-mono text-[10px] tracking-[0.14em] uppercase mb-2"
+                   style={{ color: 'rgba(228,235,248,0.28)' }}>
+                  {s.label}
+                </p>
+                <p className="font-display font-black animate-flicker"
+                   style={{ fontSize: 32, lineHeight: 1, color: s.color }}>
+                  {s.value}
+                </p>
+              </motion.div>
+            ))}
           </div>
         )}
 
-        {/* Verification Result */}
+        {/* Terminal verification output */}
         {verificationResult && (
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4">
-              <h5 className="mb-0 fw-bold">Verification Result</h5>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="sv-terminal"
+          >
+            {/* Terminal chrome */}
+            <div className="flex items-center gap-2 px-5 py-3"
+                 style={{ borderBottom: '1px solid rgba(0,159,227,0.12)', background: 'rgba(0,159,227,0.03)' }}>
+              <Terminal className="w-3.5 h-3.5" style={{ color: 'var(--sv-cyan)' }} />
+              <span className="font-mono text-[10px] tracking-[0.16em] uppercase"
+                    style={{ color: 'var(--sv-cyan)' }}>
+                BLOCKCHAIN_VERIFICATION_RESULT
+              </span>
+              <div className="ml-auto flex gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(200,0,90,0.5)' }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(251,191,36,0.5)' }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(132,189,0,0.5)' }} />
+              </div>
             </div>
-            <div className="card-body p-4">
-              <div className={`alert ${verificationResult.valid ? 'alert-success' : 'alert-danger'} mb-4`}>
-                <div className="d-flex align-items-center">
-                  {verificationResult.valid ? (
-                    <svg width="24" height="24" fill="currentColor" className="me-2" viewBox="0 0 16 16">
-                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                    </svg>
-                  ) : (
-                    <svg width="24" height="24" fill="currentColor" className="me-2" viewBox="0 0 16 16">
-                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
-                    </svg>
-                  )}
-                  <strong>
-                    {verificationResult.valid
-                      ? 'Blockchain integrity verified successfully'
-                      : 'Blockchain integrity check failed'}
-                  </strong>
-                </div>
-              </div>
 
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <div className="bg-light rounded p-3">
-                    <small className="text-muted d-block mb-1">Blocks Verified</small>
-                    <strong>{verificationResult.total_votes || 0}</strong>
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <div className="bg-light rounded p-3">
-                    <small className="text-muted d-block mb-1">Verified At</small>
-                    <strong>{new Date().toLocaleString()}</strong>
-                  </div>
-                </div>
-              </div>
-
+            {/* Terminal content */}
+            <div className="p-6 space-y-2 font-mono text-sm">
+              <p style={{ color: verificationResult.valid ? 'var(--sv-lime)' : 'var(--sv-magenta)' }}>
+                {verificationResult.valid ? '✓' : '✗'}{' '}
+                STATUS: {verificationResult.valid ? 'INTEGRITY_VERIFIED' : 'INTEGRITY_FAILED'}
+              </p>
+              <p style={{ color: 'rgba(228,235,248,0.45)' }}>
+                {'> '} BLOCKS_VERIFIED: {verificationResult.total_votes || 0}
+              </p>
+              <p style={{ color: 'rgba(228,235,248,0.45)' }}>
+                {'> '} HASH_CHAIN:{' '}
+                <span style={{ color: verificationResult.valid ? 'var(--sv-lime)' : 'var(--sv-magenta)' }}>
+                  {verificationResult.valid ? 'INTACT' : 'BROKEN'}
+                </span>
+              </p>
+              <p style={{ color: 'rgba(228,235,248,0.45)' }}>
+                {'> '} VERIFIED_AT: {new Date().toISOString()}
+              </p>
               {verificationResult.errors && verificationResult.errors.length > 0 && (
-                <div className="mt-4">
-                  <h6 className="fw-bold text-danger">Errors Found:</h6>
-                  <ul className="mb-0">
-                    {verificationResult.errors.map((error, index) => (
-                      <li key={index} className="text-danger">{error}</li>
-                    ))}
-                  </ul>
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,159,227,0.08)' }}>
+                  {verificationResult.errors.map((err, i) => (
+                    <p key={i} style={{ color: 'var(--sv-magenta)' }}>! {err}</p>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

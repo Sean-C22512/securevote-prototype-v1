@@ -1,44 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Gem, LogOut, Plus, X, Loader2, Play, Square, Trash2, Users2,
+         Edit2, ChevronLeft } from 'lucide-react';
 import {
-  fetchElections,
-  createElection,
-  updateElection,
-  deleteElection,
-  startElection,
-  endElection,
-  addCandidate,
-  removeCandidate
+  fetchElections, createElection, updateElection, deleteElection,
+  startElection, endElection, addCandidate, removeCandidate,
 } from '../../api/apiClient';
 
-const ElectionManagement = () => {
-  const [elections, setElections] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showCandidateModal, setShowCandidateModal] = useState(false);
-  const [selectedElection, setSelectedElection] = useState(null);
-  const [newElection, setNewElection] = useState({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }] });
-  const [newCandidate, setNewCandidate] = useState({ name: '', description: '' });
-  const navigate = useNavigate();
-  const userRole = localStorage.getItem('role');
+const Modal = ({ show, onClose, title, children }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(4,5,12,0.75)', backdropFilter: 'blur(8px)' }}
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          className="w-full max-w-lg sv-card p-8 shadow-sv-glow"
+          style={{ border: '1px solid rgba(0,159,227,0.18)' }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-display font-bold text-white" style={{ fontSize: 18 }}>{title}</h2>
+            <button onClick={onClose} className="sv-btn-ghost p-1" style={{ color: 'var(--sv-text-muted)' }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {children}
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
-  useEffect(() => {
-    loadElections();
-  }, []);
+const statusBadge = (status) => {
+  switch (status) {
+    case 'active': return 'sv-badge-active';
+    case 'draft':  return 'sv-badge-draft';
+    case 'closed': return 'sv-badge-closed';
+    default:       return 'sv-badge-closed';
+  }
+};
+
+const ElectionManagement = () => {
+  const [elections,          setElections]          = useState([]);
+  const [loading,            setLoading]            = useState(true);
+  const [error,              setError]              = useState('');
+  const [success,            setSuccess]            = useState('');
+  const [showCreateModal,    setShowCreateModal]    = useState(false);
+  const [showEditModal,      setShowEditModal]      = useState(false);
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
+  const [selectedElection,   setSelectedElection]   = useState(null);
+  const [newElection,        setNewElection]        = useState({
+    title: '', description: '',
+    candidates: [{ name: '', party: '' }, { name: '', party: '' }],
+  });
+  const [newCandidate, setNewCandidate] = useState({ name: '', description: '' });
+  const navigate  = useNavigate();
+  const userRole  = localStorage.getItem('role');
+
+  useEffect(() => { loadElections(); }, []);
 
   const loadElections = async () => {
     try {
       const data = await fetchElections();
       setElections(data.elections || []);
-    } catch (err) {
+    } catch {
       setError('Failed to load elections');
     } finally {
       setLoading(false);
     }
   };
+
+  const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -48,18 +88,14 @@ const ElectionManagement = () => {
         ...newElection,
         candidates: newElection.candidates
           .filter(c => c.name.trim())
-          .map(c => ({ name: c.name.trim(), party: c.party.trim() || undefined }))
+          .map(c => ({ name: c.name.trim(), party: c.party.trim() || undefined })),
       };
-      if (payload.candidates.length < 2) {
-        setError('At least 2 candidates are required');
-        return;
-      }
+      if (payload.candidates.length < 2) { setError('At least 2 candidates are required'); return; }
       await createElection(payload);
-      setSuccess('Election created successfully');
+      flash('Election created successfully');
       setShowCreateModal(false);
       setNewElection({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }] });
       loadElections();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to create election');
     }
@@ -71,48 +107,44 @@ const ElectionManagement = () => {
     try {
       await updateElection(selectedElection.election_id, {
         title: selectedElection.title,
-        description: selectedElection.description
+        description: selectedElection.description,
       });
-      setSuccess('Election updated successfully');
+      flash('Election updated successfully');
       setShowEditModal(false);
       loadElections();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to update election');
     }
   };
 
   const handleDelete = async (electionId) => {
-    if (!window.confirm('Are you sure you want to delete this election?')) return;
+    if (!window.confirm('Delete this election?')) return;
     try {
       await deleteElection(electionId);
-      setSuccess('Election deleted successfully');
+      flash('Election deleted');
       loadElections();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to delete election');
     }
   };
 
   const handleStart = async (electionId) => {
-    if (!window.confirm('Are you sure you want to start this election? Voting will begin immediately.')) return;
+    if (!window.confirm('Start this election? Voting will begin immediately.')) return;
     try {
       await startElection(electionId);
-      setSuccess('Election started successfully');
+      flash('Election started');
       loadElections();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to start election');
     }
   };
 
   const handleEnd = async (electionId) => {
-    if (!window.confirm('Are you sure you want to end this election? Voting will be closed.')) return;
+    if (!window.confirm('End this election? Voting will be closed.')) return;
     try {
       await endElection(electionId);
-      setSuccess('Election ended successfully');
+      flash('Election ended');
       loadElections();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to end election');
     }
@@ -123,14 +155,11 @@ const ElectionManagement = () => {
     setError('');
     try {
       await addCandidate(selectedElection.election_id, newCandidate);
-      setSuccess('Candidate added successfully');
+      flash('Candidate added');
       setNewCandidate({ name: '', description: '' });
       loadElections();
-      // Update selected election with new data
       const updated = await fetchElections();
-      const current = updated.elections.find(e => e.election_id === selectedElection.election_id);
-      setSelectedElection(current);
-      setTimeout(() => setSuccess(''), 3000);
+      setSelectedElection(updated.elections.find(el => el.election_id === selectedElection.election_id));
     } catch (err) {
       setError(err?.error || 'Failed to add candidate');
     }
@@ -140,12 +169,10 @@ const ElectionManagement = () => {
     if (!window.confirm('Remove this candidate?')) return;
     try {
       await removeCandidate(selectedElection.election_id, candidateId);
-      setSuccess('Candidate removed');
+      flash('Candidate removed');
       loadElections();
       const updated = await fetchElections();
-      const current = updated.elections.find(e => e.election_id === selectedElection.election_id);
-      setSelectedElection(current);
-      setTimeout(() => setSuccess(''), 3000);
+      setSelectedElection(updated.elections.find(el => el.election_id === selectedElection.election_id));
     } catch (err) {
       setError(err?.error || 'Failed to remove candidate');
     }
@@ -158,410 +185,298 @@ const ElectionManagement = () => {
     navigate('/');
   };
 
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'active': return 'bg-success';
-      case 'draft': return 'bg-warning text-dark';
-      case 'closed': return 'bg-secondary';
-      default: return 'bg-light text-dark';
-    }
-  };
-
   return (
-    <div className="min-vh-100" style={{ backgroundColor: '#F8F9FA' }}>
-      {/* Navigation */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div className="container">
-          <Link to="/official" className="navbar-brand fw-bold" style={{ color: '#6f42c1' }}>
-            SecureVote SU
-          </Link>
-          <div className="d-flex align-items-center gap-3">
-            <Link to="/official" className="btn btn-outline-secondary btn-sm">
-              Back to Dashboard
+    <div className="sv-bg min-h-screen">
+
+      {/* Nav */}
+      <nav className="sv-nav px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Gem className="w-4 h-4 text-tud-cyan" />
+            <Link to="/official" style={{ textDecoration: 'none' }}
+                  className="font-display font-bold text-white text-sm tracking-wide">
+              SecureVote SU
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/official" className="sv-btn-outline" style={{ textDecoration: 'none' }}>
+              <ChevronLeft className="w-3 h-3" /> Dashboard
             </Link>
             {userRole === 'admin' && (
-              <Link to="/admin" className="btn btn-outline-secondary btn-sm">
-                Admin Panel
-              </Link>
+              <Link to="/admin" className="sv-btn-outline" style={{ textDecoration: 'none' }}>Admin</Link>
             )}
-            <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">
-              Logout
-            </button>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                           onClick={handleLogout} className="sv-btn-ghost text-xs">
+              <LogOut className="w-3.5 h-3.5" />
+            </motion.button>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <div className="container py-5">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h1 className="fw-bold mb-2">Election Management</h1>
-            <p className="text-muted">Create and manage election campaigns</p>
-          </div>
-          <button
-            className="submit-btn px-4 py-2"
+      <div className="max-w-5xl mx-auto px-6 py-12">
+
+        {/* Page header */}
+        <div className="flex items-start justify-between mb-10">
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+            <p className="font-mono text-[10px] tracking-[0.16em] mb-2" style={{ color: 'var(--sv-text-muted)' }}>
+              ELECTION MANAGEMENT
+            </p>
+            <h1 className="font-display font-black text-white"
+                style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2.2rem)', letterSpacing: '-0.02em' }}>
+              Elections
+            </h1>
+          </motion.div>
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setShowCreateModal(true)}
+            className="sv-btn-primary shrink-0"
           >
-            Create Election
-          </button>
+            <Plus className="w-3.5 h-3.5" /> Create Election
+          </motion.button>
         </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
+        {error   && <div className="sv-alert-error mb-5">{error}</div>}
+        {success && <div className="sv-alert-success mb-5">{success}</div>}
 
-        {/* Elections List */}
+        {/* List */}
         {loading ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-secondary" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
+          <div className="text-center py-24">
+            <Loader2 className="w-7 h-7 animate-spin mx-auto text-tud-cyan" />
           </div>
+
         ) : elections.length === 0 ? (
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-body text-center py-5">
-              <p className="text-muted mb-3">No elections found</p>
-              <button
-                className="submit-btn px-4 py-2"
-                onClick={() => setShowCreateModal(true)}
-              >
-                Create Your First Election
-              </button>
-            </div>
+          <div className="sv-card p-14 text-center">
+            <p className="text-sm mb-6" style={{ color: 'var(--sv-text-muted)' }}>No elections yet.</p>
+            <button onClick={() => setShowCreateModal(true)} className="sv-btn-primary">
+              <Plus className="w-3.5 h-3.5" /> Create First Election
+            </button>
           </div>
+
         ) : (
-          <div className="row g-4">
-            {elections.map((election) => (
-              <div key={election.election_id} className="col-md-6">
-                <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                  <div className="card-body p-4">
-                    <div className="d-flex justify-content-between align-items-start mb-3">
-                      <h5 className="fw-bold mb-0">{election.title}</h5>
-                      <span className={`badge ${getStatusBadgeClass(election.status)}`}>
-                        {election.status}
-                      </span>
-                    </div>
-                    <p className="text-muted mb-3">{election.description || 'No description'}</p>
-
-                    <div className="mb-3">
-                      <small className="text-muted">
-                        Candidates: {election.candidates?.length || 0}
-                      </small>
-                    </div>
-
-                    <div className="d-flex flex-wrap gap-2">
-                      {election.status === 'draft' && (
-                        <>
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => {
-                              setSelectedElection(election);
-                              setShowEditModal(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => {
-                              setSelectedElection(election);
-                              setShowCandidateModal(true);
-                            }}
-                          >
-                            Candidates
-                          </button>
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => handleStart(election.election_id)}
-                            disabled={!election.candidates || election.candidates.length < 2}
-                          >
-                            Start
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDelete(election.election_id)}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                      {election.status === 'active' && (
-                        <button
-                          className="btn btn-sm btn-warning"
-                          onClick={() => handleEnd(election.election_id)}
-                        >
-                          End Election
-                        </button>
-                      )}
-                      {election.status === 'closed' && (
-                        <Link
-                          to={`/official/results?election=${election.election_id}`}
-                          className="btn btn-sm btn-outline-primary"
-                        >
-                          View Results
-                        </Link>
-                      )}
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {elections.map((election, i) => (
+              <motion.div
+                key={election.election_id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="sv-card p-6"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-display font-bold text-white text-sm leading-snug pr-3">
+                    {election.title}
+                  </h3>
+                  <span className={`${statusBadge(election.status)} shrink-0`}>{election.status}</span>
                 </div>
-              </div>
+                <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--sv-text-dim)' }}>
+                  {election.description || 'No description'}
+                </p>
+                <p className="font-mono text-[10px] mb-5" style={{ color: 'var(--sv-text-muted)' }}>
+                  {election.candidates?.length || 0} candidates
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {election.status === 'draft' && (
+                    <>
+                      <button
+                        onClick={() => { setSelectedElection(election); setShowEditModal(true); }}
+                        className="sv-btn-outline text-xs"
+                        style={{ padding: '7px 12px' }}>
+                        <Edit2 className="w-3 h-3" /> Edit
+                      </button>
+                      <button
+                        onClick={() => { setSelectedElection(election); setShowCandidateModal(true); }}
+                        className="sv-btn-outline text-xs"
+                        style={{ padding: '7px 12px', color: 'var(--sv-text-dim)', borderColor: 'var(--sv-border)' }}>
+                        <Users2 className="w-3 h-3" /> Candidates
+                      </button>
+                      <button
+                        onClick={() => handleStart(election.election_id)}
+                        disabled={!election.candidates || election.candidates.length < 2}
+                        className="sv-btn-lime"
+                        style={{ padding: '7px 12px', fontSize: 10 }}>
+                        <Play className="w-3 h-3" /> Start
+                      </button>
+                      <button
+                        onClick={() => handleDelete(election.election_id)}
+                        className="sv-btn-danger"
+                        style={{ padding: '7px 12px' }}>
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
+                    </>
+                  )}
+                  {election.status === 'active' && (
+                    <button
+                      onClick={() => handleEnd(election.election_id)}
+                      className="sv-btn-amber"
+                      style={{ padding: '7px 14px' }}>
+                      <Square className="w-3 h-3" /> End Election
+                    </button>
+                  )}
+                  {election.status === 'closed' && (
+                    <Link
+                      to={`/official/results?election=${election.election_id}`}
+                      className="sv-btn-outline"
+                      style={{ padding: '7px 12px', textDecoration: 'none', fontSize: 10 }}>
+                      View Results
+                    </Link>
+                  )}
+                </div>
+              </motion.div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Create Election Modal */}
-      {showCreateModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0" style={{ borderRadius: '16px' }}>
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title fw-bold">Create New Election</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowCreateModal(false)}
-                ></button>
-              </div>
-              <form onSubmit={handleCreate}>
-                <div className="modal-body">
-                  <div className="mb-3">
-                    <label className="form-label">Title</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newElection.title}
-                      onChange={(e) => setNewElection({ ...newElection, title: e.target.value })}
-                      placeholder="e.g. Class Representative Election 2024"
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">Description</label>
-                    <textarea
-                      className="form-control"
-                      rows="3"
-                      value={newElection.description}
-                      onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
-                      placeholder="Describe the election..."
-                    ></textarea>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-medium">Candidates (minimum 2)</label>
-                    {newElection.candidates.map((candidate, index) => (
-                      <div key={index} className="d-flex gap-2 mb-2 align-items-center">
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder={`Candidate ${index + 1} name`}
-                          value={candidate.name}
-                          onChange={(e) => {
-                            const updated = [...newElection.candidates];
-                            updated[index] = { ...updated[index], name: e.target.value };
-                            setNewElection({ ...newElection, candidates: updated });
-                          }}
-                          required
-                        />
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Party (optional)"
-                          value={candidate.party}
-                          onChange={(e) => {
-                            const updated = [...newElection.candidates];
-                            updated[index] = { ...updated[index], party: e.target.value };
-                            setNewElection({ ...newElection, candidates: updated });
-                          }}
-                        />
-                        {newElection.candidates.length > 2 && (
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => {
-                              const updated = newElection.candidates.filter((_, i) => i !== index);
-                              setNewElection({ ...newElection, candidates: updated });
-                            }}
-                          >
-                            &times;
-                          </button>
-                        )}
-                      </div>
-                    ))}
+      {/* Create Modal */}
+      <Modal show={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Election">
+        <form onSubmit={handleCreate} className="space-y-5">
+          <div>
+            <label className="sv-label">Title</label>
+            <input type="text" className="sv-input-box"
+              value={newElection.title}
+              onChange={(e) => setNewElection({ ...newElection, title: e.target.value })}
+              placeholder="e.g. Class Representative Election 2025" required />
+          </div>
+          <div>
+            <label className="sv-label">Description</label>
+            <textarea className="sv-input-box resize-none" rows={3}
+              value={newElection.description}
+              onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
+              placeholder="Describe the election&hellip;" />
+          </div>
+          <div>
+            <label className="sv-label">Candidates (min 2)</label>
+            <div className="space-y-2">
+              {newElection.candidates.map((c, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input type="text" className="sv-input-box flex-1"
+                    placeholder={`Candidate ${idx + 1} name`} value={c.name} required
+                    onChange={(e) => {
+                      const updated = [...newElection.candidates];
+                      updated[idx] = { ...updated[idx], name: e.target.value };
+                      setNewElection({ ...newElection, candidates: updated });
+                    }} />
+                  <input type="text" className="sv-input-box flex-1"
+                    placeholder="Party (optional)" value={c.party}
+                    onChange={(e) => {
+                      const updated = [...newElection.candidates];
+                      updated[idx] = { ...updated[idx], party: e.target.value };
+                      setNewElection({ ...newElection, candidates: updated });
+                    }} />
+                  {newElection.candidates.length > 2 && (
+                    <button type="button" className="sv-btn-ghost p-1"
+                      onClick={() => setNewElection({ ...newElection, candidates: newElection.candidates.filter((_, i) => i !== idx) })}>
+                      <X className="w-3.5 h-3.5" style={{ color: 'var(--sv-magenta)' }} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button type="button"
+              className="mt-2 font-mono text-[11px] tracking-[0.08em]"
+              style={{ color: 'var(--sv-cyan)', background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => setNewElection({ ...newElection, candidates: [...newElection.candidates, { name: '', party: '' }] })}>
+              + Add candidate
+            </button>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setShowCreateModal(false)} className="sv-btn-outline flex-1">Cancel</button>
+            <button type="submit"
+              disabled={newElection.candidates.filter(c => c.name.trim()).length < 2}
+              className="sv-btn-primary flex-1">
+              Create Election
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal show={showEditModal && !!selectedElection} onClose={() => setShowEditModal(false)} title="Edit Election">
+        {selectedElection && (
+          <form onSubmit={handleUpdate} className="space-y-5">
+            <div>
+              <label className="sv-label">Title</label>
+              <input type="text" className="sv-input-box"
+                value={selectedElection.title} required
+                onChange={(e) => setSelectedElection({ ...selectedElection, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="sv-label">Description</label>
+              <textarea className="sv-input-box resize-none" rows={3}
+                value={selectedElection.description || ''}
+                onChange={(e) => setSelectedElection({ ...selectedElection, description: e.target.value })} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowEditModal(false)} className="sv-btn-outline flex-1">Cancel</button>
+              <button type="submit" className="sv-btn-primary flex-1">Save Changes</button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Candidates Modal */}
+      <Modal
+        show={showCandidateModal && !!selectedElection}
+        onClose={() => { setShowCandidateModal(false); setNewCandidate({ name: '', description: '' }); }}
+        title={`Candidates — ${selectedElection?.title || ''}`}
+      >
+        {selectedElection && (
+          <div>
+            <form onSubmit={handleAddCandidate} className="flex gap-2 mb-6">
+              <input type="text" className="sv-input-box flex-1" placeholder="Name" value={newCandidate.name}
+                onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })} required />
+              <input type="text" className="sv-input-box flex-1" placeholder="Description (optional)" value={newCandidate.description}
+                onChange={(e) => setNewCandidate({ ...newCandidate, description: e.target.value })} />
+              <button type="submit" className="sv-btn-primary shrink-0" style={{ padding: '10px 16px' }}>Add</button>
+            </form>
+
+            <p className="sv-label mb-3">
+              Current Candidates ({selectedElection.candidates?.length || 0})
+            </p>
+            {!selectedElection.candidates || selectedElection.candidates.length === 0 ? (
+              <p className="text-sm italic" style={{ color: 'var(--sv-text-muted)' }}>
+                No candidates yet. Add at least 2 to start the election.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {selectedElection.candidates.map((candidate, i) => (
+                  <div key={candidate.id ?? i}
+                       className="flex items-center justify-between p-3"
+                       style={{ border: '1px solid var(--sv-border)', borderRadius: 2,
+                                background: 'rgba(228,235,248,0.02)' }}>
+                    <div>
+                      <p className="font-display font-semibold text-sm text-white">{candidate.name}</p>
+                      {candidate.description && (
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--sv-text-muted)' }}>
+                          {candidate.description}
+                        </p>
+                      )}
+                    </div>
                     <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm mt-1"
-                      onClick={() => setNewElection({
-                        ...newElection,
-                        candidates: [...newElection.candidates, { name: '', party: '' }]
-                      })}
-                    >
-                      + Add Candidate
+                      onClick={() => handleRemoveCandidate(candidate.id)}
+                      className="font-mono text-[10px] ml-3 shrink-0 transition-colors"
+                      style={{ color: 'var(--sv-magenta)', background: 'none', border: 'none', cursor: 'pointer',
+                               letterSpacing: '0.08em' }}>
+                      REMOVE
                     </button>
                   </div>
-                </div>
-                <div className="modal-footer border-0 pt-0">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setShowCreateModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="submit-btn px-4 py-2"
-                    disabled={newElection.candidates.filter(c => c.name.trim()).length < 2}
-                  >
-                    Create Election
-                  </button>
-                </div>
-              </form>
+                ))}
+              </div>
+            )}
+            <div className="mt-6">
+              <button
+                onClick={() => { setShowCandidateModal(false); setNewCandidate({ name: '', description: '' }); }}
+                className="sv-btn-outline w-full">
+                Close
+              </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Edit Election Modal */}
-      {showEditModal && selectedElection && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0" style={{ borderRadius: '16px' }}>
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title fw-bold">Edit Election</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowEditModal(false)}
-                ></button>
-              </div>
-              <form onSubmit={handleUpdate}>
-                <div className="modal-body">
-                  <div className="mb-3">
-                    <label className="form-label">Title</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={selectedElection.title}
-                      onChange={(e) => setSelectedElection({ ...selectedElection, title: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">Description</label>
-                    <textarea
-                      className="form-control"
-                      rows="3"
-                      value={selectedElection.description || ''}
-                      onChange={(e) => setSelectedElection({ ...selectedElection, description: e.target.value })}
-                    ></textarea>
-                  </div>
-                </div>
-                <div className="modal-footer border-0 pt-0">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setShowEditModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn px-4 py-2">
-                    Save Changes
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Candidates Modal */}
-      {showCandidateModal && selectedElection && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content border-0" style={{ borderRadius: '16px' }}>
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title fw-bold">Manage Candidates - {selectedElection.title}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => {
-                    setShowCandidateModal(false);
-                    setNewCandidate({ name: '', description: '' });
-                  }}
-                ></button>
-              </div>
-              <div className="modal-body">
-                {/* Add Candidate Form */}
-                <form onSubmit={handleAddCandidate} className="mb-4 p-3 bg-light rounded">
-                  <h6 className="fw-bold mb-3">Add New Candidate</h6>
-                  <div className="row g-3">
-                    <div className="col-md-5">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Candidate name"
-                        value={newCandidate.name}
-                        onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="col-md-5">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Description (optional)"
-                        value={newCandidate.description}
-                        onChange={(e) => setNewCandidate({ ...newCandidate, description: e.target.value })}
-                      />
-                    </div>
-                    <div className="col-md-2">
-                      <button type="submit" className="btn btn-success w-100">
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                </form>
-
-                {/* Candidates List */}
-                <h6 className="fw-bold mb-3">Current Candidates ({selectedElection.candidates?.length || 0})</h6>
-                {!selectedElection.candidates || selectedElection.candidates.length === 0 ? (
-                  <p className="text-muted">No candidates added yet. Add at least 2 candidates to start the election.</p>
-                ) : (
-                  <div className="list-group">
-                    {selectedElection.candidates.map((candidate) => (
-                      <div key={candidate.candidate_id} className="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong>{candidate.name}</strong>
-                          {candidate.description && (
-                            <small className="text-muted d-block">{candidate.description}</small>
-                          )}
-                        </div>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleRemoveCandidate(candidate.candidate_id)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer border-0 pt-0">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => {
-                    setShowCandidateModal(false);
-                    setNewCandidate({ name: '', description: '' });
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

@@ -1,0 +1,5 @@
+aws_region         = "eu-west-1"
+key_pair_name      = "your-key-pair-name"
+secret_key         = "your-flask-secret-key"
+mongo_uri          = "mongodb+srv://user:pass@cluster.mongodb.net/securevote"
+rsa_key_passphrase = ""

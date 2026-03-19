@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowRight, Fingerprint, Gem } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { login, webAuthnLoginBegin, webAuthnLoginComplete } from '../api/apiClient';
 
 const supportsWebAuthn = typeof window !== 'undefined' && !!window.PublicKeyCredential;
 
 const Login = () => {
-  const [studentId, setStudentId] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [studentId, setStudentId]           = useState('');
+  const [password, setPassword]             = useState('');
+  const [error, setError]                   = useState('');
+  const [loading, setLoading]               = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -27,12 +29,10 @@ const Login = () => {
     localStorage.setItem('studentId', data.student_id);
   };
 
-  // ── Password login ────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const data = await login(studentId, password);
       storeSession(data);
@@ -44,25 +44,17 @@ const Login = () => {
     }
   };
 
-  // ── Biometric login ───────────────────────────────────────────────────────
   const handleBiometricLogin = async () => {
     if (!studentId.trim()) {
-      setError('Please enter your Student ID above before using biometric login.');
+      setError('Enter your Student ID above before using biometric login.');
       return;
     }
-
     setError('');
     setBiometricLoading(true);
-
     try {
-      // 1. Get authentication options from server
-      const options = await webAuthnLoginBegin(studentId);
-
-      // 2. Invoke browser WebAuthn API (triggers TouchID / FaceID / Hello)
+      const options   = await webAuthnLoginBegin(studentId);
       const assertion = await startAuthentication(options);
-
-      // 3. Verify with server and receive JWT
-      const data = await webAuthnLoginComplete(studentId, assertion);
+      const data      = await webAuthnLoginComplete(studentId, assertion);
       storeSession(data);
       routeByRole(data.role);
     } catch (err) {
@@ -76,82 +68,152 @@ const Login = () => {
     }
   };
 
+  const busy = loading || biometricLoading;
+
   return (
-    <div className="page-container">
-      <div className="vote-card" style={{ maxWidth: '420px' }}>
-        <div className="text-center mb-4">
-          <h2 className="vote-title">SecureVote</h2>
-          <p className="vote-subtitle">TU Dublin Student Elections</p>
+    <div className="min-h-screen flex" style={{ background: 'var(--sv-bg)' }}>
+
+      {/* ── Left branding panel (desktop only) ── */}
+      <div className="sv-login-panel hidden lg:flex flex-col justify-between p-14 relative"
+           style={{ width: 400, borderRight: '1px solid rgba(0,159,227,0.08)', flexShrink: 0 }}>
+
+        {/* Logo */}
+        <div className="flex items-center gap-2.5">
+          <Gem className="w-5 h-5 text-tud-cyan" />
+          <span className="font-display font-bold text-white text-sm tracking-wide">SecureVote</span>
         </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        {/* ── Password form ── */}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label">Student ID</label>
-            <input
-              type="text"
-              className="form-control"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-              required
-              placeholder="e.g. C22512345"
-              disabled={loading || biometricLoading}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter your password"
-              disabled={loading || biometricLoading}
-            />
-          </div>
-
-          <button type="submit" className="submit-btn" disabled={loading || biometricLoading}>
-            {loading ? 'Signing in\u2026' : 'Sign In'}
-          </button>
-        </form>
-
-        {/* ── Biometric login ── */}
-        {supportsWebAuthn ? (
-          <>
-            <hr className="my-4" />
-            <div className="text-center">
-              <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
-                Or sign in with a registered biometric
-              </p>
-              <button
-                type="button"
-                className="btn btn-outline-secondary w-100"
-                style={{ borderRadius: '12px', fontWeight: 600, padding: '0.75rem' }}
-                onClick={handleBiometricLogin}
-                disabled={loading || biometricLoading}
-              >
-                {biometricLoading ? 'Waiting for biometric\u2026' : '\uD83D\uDD10 Login with Biometrics'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <p className="text-center text-muted mt-3" style={{ fontSize: '0.8rem' }}>
-            Biometric login is not supported in this browser or context.
+        {/* Hero text */}
+        <div>
+          <p className="font-display font-black leading-[0.88] tracking-tight"
+             style={{ fontSize: 80, color: 'rgba(228,235,248,0.90)' }}>
+            SECURE<br />VOTE
           </p>
-        )}
+          <p className="font-mono text-[10px] tracking-[0.20em] mt-5"
+             style={{ color: 'rgba(0,159,227,0.45)' }}>
+            TU DUBLIN &middot; 2026
+          </p>
+        </div>
 
-        <div className="text-center mt-4">
-          <p className="text-muted mb-0">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-decoration-none" style={{ color: '#6f42c1', fontWeight: 500 }}>
+        {/* Bottom caption */}
+        <div style={{ borderTop: '1px solid rgba(0,159,227,0.10)', paddingTop: 20 }}>
+          <p className="font-mono text-[10px] leading-loose tracking-[0.14em] uppercase"
+             style={{ color: 'rgba(228,235,248,0.22)' }}>
+            End-to-end encrypted<br />
+            Blockchain verified<br />
+            WebAuthn ready
+          </p>
+        </div>
+
+        {/* Decorative corner accent */}
+        <div className="absolute bottom-0 right-0 w-16 h-16 opacity-20"
+             style={{ borderTop: '1px solid var(--sv-cyan)', borderLeft: '1px solid var(--sv-cyan)' }} />
+      </div>
+
+      {/* ── Right form panel ── */}
+      <div className="sv-bg flex-1 flex items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.40, ease: 'easeOut' }}
+          className="w-full max-w-sm"
+        >
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-12">
+            <Gem className="w-5 h-5 text-tud-cyan" />
+            <span className="font-display font-bold text-white tracking-wide">SecureVote</span>
+          </div>
+
+          <h2 className="font-display font-bold text-white mb-1" style={{ fontSize: 28, letterSpacing: '-0.02em' }}>
+            Sign in
+          </h2>
+          <p className="text-sm mb-10" style={{ color: 'var(--sv-text-dim)' }}>
+            TU Dublin Student Elections
+          </p>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="sv-alert-error mb-8"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div>
+              <label className="sv-label">Student ID</label>
+              <input
+                type="text"
+                className="sv-input"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
+                placeholder="e.g. C22512345"
+                required
+                disabled={busy}
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <label className="sv-label">Password</label>
+              <input
+                type="password"
+                className="sv-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                disabled={busy}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <motion.button
+              whileHover={{ scale: busy ? 1 : 1.015 }}
+              whileTap={{ scale: busy ? 1 : 0.980 }}
+              type="submit"
+              className="sv-btn-primary w-full"
+              disabled={busy}
+            >
+              {loading ? 'Signing in\u2026' : (<>Sign In <ArrowRight className="w-3.5 h-3.5" /></>)}
+            </motion.button>
+          </form>
+
+          {supportsWebAuthn && (
+            <>
+              <div className="sv-divider my-8 flex items-center justify-center">
+                <span className="font-mono text-[10px] px-4 tracking-[0.14em]"
+                      style={{ color: 'var(--sv-text-muted)', background: 'var(--sv-bg)', position: 'relative', zIndex: 1 }}>
+                  OR
+                </span>
+              </div>
+              <motion.button
+                whileHover={{ scale: busy ? 1 : 1.015 }}
+                whileTap={{ scale: busy ? 1 : 0.980 }}
+                type="button"
+                className="sv-btn-outline w-full"
+                onClick={handleBiometricLogin}
+                disabled={busy}
+              >
+                <Fingerprint className="w-3.5 h-3.5" />
+                {biometricLoading ? 'Waiting for biometric\u2026' : 'Biometric Login'}
+              </motion.button>
+            </>
+          )}
+
+          <p className="text-center text-sm mt-10" style={{ color: 'var(--sv-text-muted)' }}>
+            No account?{' '}
+            <Link to="/register"
+                  className="font-semibold transition-colors"
+                  style={{ color: 'var(--sv-cyan)', textDecoration: 'none' }}
+                  onMouseEnter={e => e.target.style.color = '#20b3f5'}
+                  onMouseLeave={e => e.target.style.color = 'var(--sv-cyan)'}>
               Register
             </Link>
           </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

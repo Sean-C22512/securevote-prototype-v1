@@ -1,0 +1,138 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 1. Backend tests ──────────────────────────────────────────
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run pytest
+        env:
+          FLASK_ENV: testing
+          SECRET_KEY: test-secret-key
+          MONGO_URI: mongodb://localhost:27017/securevote_test
+        run: |
+          cd backend
+          pytest tests/ --tb=short -q
+
+  # ── 2. Frontend build ─────────────────────────────────────────
+  build-frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build
+        env:
+          REACT_APP_API_URL: http://${{ secrets.EC2_HOST }}:5001
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+
+  # ── 3. Deploy backend to EC2 ──────────────────────────────────
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [test-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        env:
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          FRONTEND_URL: http://securevote-frontend-eu-west-1.s3-website-eu-west-1.amazonaws.com
+        run: |
+          echo "$EC2_KEY" > key.pem
+          chmod 600 key.pem
+
+          # Copy backend source
+          rsync -az -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
+            backend/ $EC2_USER@$EC2_HOST:/home/ec2-user/backend/
+
+          # Build and restart container
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
+            cd /home/ec2-user/backend
+            docker build -t securevote-backend .
+            docker rm -f securevote-backend || true
+            docker run -d \
+              --name securevote-backend \
+              --restart unless-stopped \
+              -p 5001:5001 \
+              -e MONGO_URI="$MONGO_URI" \
+              -e SECRET_KEY="$SECRET_KEY" \
+              -e FLASK_ENV=production \
+              -e RSA_KEY_PASSPHRASE="" \
+              -e FRONTEND_URL="$FRONTEND_URL" \
+              securevote-backend
+          EOF
+
+          rm -f key.pem
+
+  # ── 4. Deploy frontend to S3 ──────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend to S3
+    runs-on: ubuntu-latest
+    needs: [test-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync frontend/build/ s3://securevote-frontend-eu-west-1 --delete
