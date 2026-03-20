@@ -62,7 +62,7 @@ jobs:
 
       - name: Build
         env:
-          REACT_APP_API_URL: http://${{ secrets.EC2_HOST }}:5001
+          REACT_APP_API_URL: https://api.securevote.ie
         run: |
           cd frontend
           npm run build
@@ -86,11 +86,10 @@ jobs:
       - name: Deploy to EC2
         env:
           EC2_KEY: ${{ secrets.EC2_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_HOST: api.securevote.ie
           EC2_USER: ${{ secrets.EC2_USER }}
           MONGO_URI: ${{ secrets.MONGO_URI }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          FRONTEND_URL: http://securevote-frontend-eu-west-1.s3-website-eu-west-1.amazonaws.com
         run: |
           echo "$EC2_KEY" > key.pem
           chmod 600 key.pem
@@ -99,7 +98,7 @@ jobs:
           rsync -az -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
             backend/ $EC2_USER@$EC2_HOST:/home/ec2-user/backend/
 
-          # Build and restart container
+          # Build and restart container (bound to localhost — nginx proxies externally)
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
             cd /home/ec2-user/backend
             docker build -t securevote-backend .
@@ -107,12 +106,15 @@ jobs:
             docker run -d \
               --name securevote-backend \
               --restart unless-stopped \
-              -p 5001:5001 \
+              -p 127.0.0.1:5001:5001 \
               -e MONGO_URI="$MONGO_URI" \
               -e SECRET_KEY="$SECRET_KEY" \
               -e FLASK_ENV=production \
               -e RSA_KEY_PASSPHRASE="" \
-              -e FRONTEND_URL="$FRONTEND_URL" \
+              -e FRONTEND_URL="https://www.securevote.ie" \
+              -e WEBAUTHN_RP_ID="api.securevote.ie" \
+              -e WEBAUTHN_RP_NAME="SecureVote" \
+              -e WEBAUTHN_ORIGIN="https://www.securevote.ie" \
               securevote-backend
           EOF
 
@@ -142,3 +144,9 @@ jobs:
       - name: Sync to S3
         run: |
           aws s3 sync frontend/build/ s3://securevote-frontend-eu-west-1 --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

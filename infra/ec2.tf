@@ -67,9 +67,9 @@ resource "aws_instance" "securevote_backend" {
   user_data = <<-EOF
     #!/bin/bash
     dnf update -y
-    dnf install -y docker git
-    systemctl enable docker
-    systemctl start docker
+    dnf install -y docker git nginx python3-certbot-nginx
+    systemctl enable docker nginx
+    systemctl start docker nginx
     usermod -aG docker ec2-user
 
     # Install docker compose plugin
@@ -89,10 +89,51 @@ resource "aws_instance" "securevote_backend" {
     WEBAUTHN_RP_NAME=SecureVote
     WEBAUTHN_ORIGIN=https://www.securevote.ie
     ENVFILE
+
+    # Nginx reverse proxy for api.securevote.ie → Flask on :5001
+    cat > /etc/nginx/conf.d/securevote-api.conf <<NGINX
+    server {
+        listen 80;
+        server_name api.securevote.ie;
+
+        location / {
+            proxy_pass         http://127.0.0.1:5001;
+            proxy_set_header   Host \$host;
+            proxy_set_header   X-Real-IP \$remote_addr;
+            proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto \$scheme;
+        }
+    }
+    NGINX
+
+    systemctl reload nginx
+
+    # Obtain Let's Encrypt cert — retry until DNS propagates (up to 10 min)
+    for i in {1..10}; do
+      certbot --nginx -d api.securevote.ie \
+        --non-interactive --agree-tos -m admin@securevote.ie && break
+      echo "Certbot attempt $i failed, retrying in 60s..."
+      sleep 60
+    done
+
+    # Enable automatic cert renewal
+    systemctl enable certbot-renew.timer
+    systemctl start certbot-renew.timer
   EOF
 
   tags = {
     Name    = "securevote-backend"
+    Project = "SecureVote"
+  }
+}
+
+# Elastic IP — stable address for api.securevote.ie DNS record
+resource "aws_eip" "securevote_backend" {
+  instance = aws_instance.securevote_backend.id
+  domain   = "vpc"
+
+  tags = {
+    Name    = "securevote-backend-eip"
     Project = "SecureVote"
   }
 }
