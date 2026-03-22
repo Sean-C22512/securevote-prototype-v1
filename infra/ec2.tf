@@ -34,14 +34,6 @@ resource "aws_security_group" "securevote_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Flask API
-  ingress {
-    from_port   = 5001
-    to_port     = 5001
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   # HTTPS
   ingress {
     from_port   = 443
@@ -78,33 +70,10 @@ resource "aws_instance" "securevote_backend" {
       -o /usr/local/lib/docker/cli-plugins/docker-compose
     chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-    # Write env file for backend
-    mkdir -p /app
-    cat > /app/.env <<ENVFILE
-    SECRET_KEY=${var.secret_key}
-    MONGO_URI=${var.mongo_uri}
-    FLASK_ENV=production
-    RSA_KEY_PASSPHRASE=${var.rsa_key_passphrase}
-    WEBAUTHN_RP_ID=api.securevote.ie
-    WEBAUTHN_RP_NAME=SecureVote
-    WEBAUTHN_ORIGIN=https://www.securevote.ie
-    ENVFILE
-
     # Nginx reverse proxy for api.securevote.ie → Flask on :5001
-    cat > /etc/nginx/conf.d/securevote-api.conf <<NGINX
-    server {
-        listen 80;
-        server_name api.securevote.ie;
-
-        location / {
-            proxy_pass         http://127.0.0.1:5001;
-            proxy_set_header   Host \$host;
-            proxy_set_header   X-Real-IP \$remote_addr;
-            proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
-            proxy_set_header   X-Forwarded-Proto \$scheme;
-        }
-    }
-    NGINX
+    # Using printf to avoid nested heredoc indentation issues
+    printf 'server {\n    listen 80;\n    server_name api.securevote.ie;\n\n    location / {\n        proxy_pass http://127.0.0.1:5001;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n}\n' \
+      > /etc/nginx/conf.d/securevote-api.conf
 
     systemctl reload nginx
 
