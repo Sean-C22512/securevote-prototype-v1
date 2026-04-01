@@ -21,7 +21,10 @@ const Results = () => {
   const loadElections = async () => {
     try {
       const data    = await fetchElections();
-      const visible = (data.elections || []).filter(e => e.status === 'active' || e.status === 'closed');
+      const role = localStorage.getItem('role');
+      const visible = (data.elections || []).filter(e =>
+        e.status === 'closed' || (e.status === 'active' && role !== 'student')
+      );
       setElections(visible);
       if (visible.length === 1) setSelectedElection(visible[0].election_id);
     } catch {

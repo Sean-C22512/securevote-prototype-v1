@@ -329,7 +329,7 @@ def end_election(election_id):
 
 
 @elections_bp.route('/<election_id>/results', methods=['GET'])
-@require_role(['official', 'admin'])
+@require_role(['student', 'official', 'admin'])
 def get_election_results(election_id):
     """
     Get election results.
