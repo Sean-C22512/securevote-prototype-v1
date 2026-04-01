@@ -143,7 +143,8 @@ class TestUserRegistration:
             json={
                 'student_id': 'C22512873',
                 'password': 'SecurePass123',
-                'email': 'student@tudublin.ie'
+                'email': 'student@tudublin.ie',
+                'programme': {'code': 'TU652', 'name': 'Computing'}
             },
             content_type='application/json'
         )
@@ -164,7 +165,8 @@ class TestUserRegistration:
         response = self.client.post('/auth/register',
             json={
                 'student_id': 'C22512874',
-                'password': 'SecurePass123'
+                'password': 'SecurePass123',
+                'programme': {'code': 'TU652', 'name': 'Computing'}
             },
             content_type='application/json'
         )
@@ -175,13 +177,15 @@ class TestUserRegistration:
         """Test registration of duplicate user."""
         # Register first time
         self.client.post('/auth/register',
-            json={'student_id': 'C22512873', 'password': 'SecurePass123'},
+            json={'student_id': 'C22512873', 'password': 'SecurePass123',
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json'
         )
 
         # Try to register again
         response = self.client.post('/auth/register',
-            json={'student_id': 'C22512873', 'password': 'AnotherPass456'},
+            json={'student_id': 'C22512873', 'password': 'AnotherPass456',
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json'
         )
 
@@ -190,7 +194,8 @@ class TestUserRegistration:
     def test_register_weak_password(self):
         """Test registration with weak password."""
         response = self.client.post('/auth/register',
-            json={'student_id': 'C22512873', 'password': 'weak'},
+            json={'student_id': 'C22512873', 'password': 'weak',
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json'
         )
 
@@ -248,7 +253,8 @@ class TestLoginWithPassword:
     def register_user(self, student_id, password):
         """Helper to register a user."""
         self.client.post('/auth/register',
-            json={'student_id': student_id, 'password': password},
+            json={'student_id': student_id, 'password': password,
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json'
         )
 
@@ -347,7 +353,8 @@ class TestPasswordManagement:
     def register_and_login(self, student_id, password):
         """Helper to register and get token."""
         self.client.post('/auth/register',
-            json={'student_id': student_id, 'password': password},
+            json={'student_id': student_id, 'password': password,
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json'
         )
         response = self.client.post('/auth/login',
