@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pymongo import MongoClient
 from utils.password import hash_password
+from data.tud_programmes import TUD_PROGRAMMES
 from datetime import datetime, timezone
 
 # Configuration
@@ -68,11 +69,13 @@ def create_student():
             break
 
     password = generate_password()
+    programme = secrets.choice(TUD_PROGRAMMES)
 
     student_data = {
         'student_id': user_id,
         'role': 'student',
         'password_hash': hash_password(password),
+        'programme': {'code': programme['code'], 'name': programme['name']},
         'created_at': datetime.now(timezone.utc)
     }
 
@@ -86,6 +89,7 @@ def create_student():
     print(f"Student ID: {user_id}")
     print(f"Password:   {password}")
     print(f"Role:       student")
+    print(f"Programme:  {programme['name']} ({programme['code']})")
     print(f"")
     print(f"Login at:   http://localhost:3000")
     print(f"Dashboard:  http://localhost:3000/dashboard")
