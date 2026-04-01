@@ -315,7 +315,7 @@ rejects the request, providing protection against credential copying attacks.
 
 ## 9. Test Suite (`backend/tests/`)
 
-Seven test modules covering the full system:
+Twelve test modules covering the full system:
 
 | File | Coverage |
 |---|---|
@@ -334,7 +334,53 @@ Rate limiting is disabled in test mode via `FLASK_ENV=testing`.
 
 ---
 
-## 9. Infrastructure
+## 10. Frontend Design System (Tailwind CSS — "Civic Terminal" Overhaul)
+
+**Completed:** March 2026
+Bootstrap has been fully removed and replaced with a custom Tailwind CSS v3 design system.
+
+### Stack additions
+- **Tailwind CSS v3** (JIT) via `src/index.css` — all utilities and components
+- **Framer Motion** — `motion.div`, `AnimatePresence`, `whileHover`/`whileTap` throughout
+- **Lucide React** — icons across all pages (logo: `Gem` icon)
+- **DOMPurify** — XSS sanitization on all user input fields
+- **Fonts (Google Fonts):** Syne (display/headings, `font-display`), Epilogue (body), IBM Plex Mono (data, `font-mono`)
+
+### Design tokens (CSS variables in `:root`)
+```
+--sv-bg #06091A          Main background (dot-grid pattern)
+--sv-surface #0D1630     Card surface
+--sv-raised #131E42      Raised elements
+--sv-border rgba(0,159,227,0.10)
+--sv-text #E4EBF8        Default text
+--sv-text-dim #8993A8    Dimmed text
+--sv-cyan #009FE3        TUD cyan — primary accent
+--sv-magenta #C8005A     TUD magenta — admin accent
+--sv-lime #84BD00        TUD lime — success / vote confirmed
+--sv-blue #004B87        TUD blue
+--sv-navy #002147        TUD navy
+```
+
+### UI zones
+- **Student/Official UI:** `.sv-bg` dot-grid on `#06091A`, `.sv-card` / `.sv-card-interactive` flat dark cards with thin cyan border, `.sv-nav` sticky navbar with blur
+- **Admin UI:** `.sv-bg-admin` scanline pattern on `#04050C`, `.sv-sidebar` 210px fixed sidebar, `.sv-terminal` monospace output for AuditLog
+
+### Component library (`@layer components` in `index.css`)
+Buttons: `.sv-btn-primary/outline/ghost/lime/danger/amber`
+Forms: `.sv-input` (underline), `.sv-input-box` (boxed), `.sv-label`
+Badges: `.sv-badge-{active/draft/closed/admin/official/student}`
+Alerts: `.sv-alert-error/success`
+Vote card: `.sv-vote-card` + `.sv-selected`
+
+### Notable UX details
+- CastVote success: full-viewport "VOTE RECORDED." ceremony in Syne black + lime checkmark
+- Dashboard cards: large faded ordinal background numbers (01, 02, 03) via absolute-positioned `<span>`
+- WebAuthn button hidden via `window.PublicKeyCredential` check (graceful degradation on unsupported browsers)
+- Staggered Framer Motion entrance animations on dashboard grids
+
+---
+
+## 11. Infrastructure & CI/CD
 
 ### Docker Compose (`docker-compose.yml`)
 Three services:
@@ -346,6 +392,18 @@ Three services:
 Backend: `SECRET_KEY`, `MONGO_URI`, `FLASK_ENV`, `ELECTION_ID`, `FRONTEND_URL`, `RSA_KEY_PASSPHRASE`.
 Frontend: `REACT_APP_API_URL`.
 
+### GitHub Actions CI/CD (`.github/workflows/ci.yml`)
+Three jobs triggered on push/PR to main:
+1. **Lint** — flake8 (Python, max line 120) + ESLint (JavaScript, max warnings 0)
+2. **Test** — spins up MongoDB 7 service container, runs `pytest tests/ -v --tb=short`
+3. **Docker Build** — builds backend and frontend images, verifies `docker compose config`
+
+### Terraform (`infra/`)
+AWS infrastructure as code:
+- `ec2.tf` — EC2 instances for backend and frontend containers
+- `s3.tf` — S3 bucket for optional vote backups
+- `variables.tf` / `outputs.tf` — configurable region, instance types, output IPs
+
 ### Utility Scripts (`backend/scripts/`)
 - `create_admin.py` — creates an admin user directly in MongoDB.
 - `create_official.py` — creates an official user.
@@ -353,7 +411,7 @@ Frontend: `REACT_APP_API_URL`.
 
 ---
 
-## 10. Key Design Decisions & Security Properties
+## 12. Key Design Decisions & Security Properties
 
 | Property | How it is implemented |
 |---|---|
@@ -368,4 +426,9 @@ Frontend: `REACT_APP_API_URL`.
 
 ---
 
-*Last updated: 2026-03-06*
+| XSS prevention | DOMPurify sanitization on all user-controlled input fields in the React frontend. |
+| Input sanitization | Election title/description length limits; candidate structure validation; datetime ordering enforced server-side. |
+
+---
+
+*Last updated: 2026-03-19*

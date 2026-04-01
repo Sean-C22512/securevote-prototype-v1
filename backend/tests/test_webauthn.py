@@ -52,7 +52,8 @@ class TestWebAuthnRegistration:
     def _register_and_login(self, student_id='C99900001', password='TestPass123'):
         """Helper: create a user and return a valid JWT."""
         self.client.post('/auth/register',
-            json={'student_id': student_id, 'password': password},
+            json={'student_id': student_id, 'password': password,
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json')
         resp = self.client.post('/auth/login',
             json={'student_id': student_id, 'password': password},
@@ -218,7 +219,8 @@ class TestWebAuthnLogin:
 
     def _create_user(self, student_id='C99910001', password='TestPass123'):
         self.client.post('/auth/register',
-            json={'student_id': student_id, 'password': password},
+            json={'student_id': student_id, 'password': password,
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json')
 
     def _create_user_with_credentials(self, student_id='C99910002'):
@@ -389,7 +391,8 @@ class TestAuthMeWebAuthn:
 
     def _register_and_login(self, student_id='C99920001', password='TestPass123'):
         self.client.post('/auth/register',
-            json={'student_id': student_id, 'password': password},
+            json={'student_id': student_id, 'password': password,
+                  'programme': {'code': 'TU652', 'name': 'Computing'}},
             content_type='application/json')
         resp = self.client.post('/auth/login',
             json={'student_id': student_id, 'password': password},
