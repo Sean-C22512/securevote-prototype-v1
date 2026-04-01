@@ -70,7 +70,14 @@ const CastVote = () => {
       setSuccess(true);
       setError('');
     } catch (err) {
-      setError(err?.error || 'Failed to cast vote. You may have already voted in this election.');
+      if (err?.error === 'You are not eligible to vote in this election') {
+        // Election shouldn't have been visible — reload list and go back to picker
+        setSelectedElection(null);
+        setSelectedCandidate(null);
+        await loadElections();
+      } else {
+        setError(err?.error || 'Failed to cast vote. You may have already voted in this election.');
+      }
     } finally {
       setSubmitting(false);
     }

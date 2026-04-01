@@ -160,6 +160,14 @@ def get_election(election_id):
     if user_role == 'student' and election['status'] not in ['active', 'closed']:
         return jsonify({'error': 'Election not found'}), 404
 
+    # Students can only see elections they're eligible for
+    if user_role == 'student':
+        eligible_programmes = election.get('eligible_programmes', [])
+        if eligible_programmes:
+            student_code = (user.get('programme') or {}).get('code')
+            if student_code not in [p['code'] for p in eligible_programmes]:
+                return jsonify({'error': 'Election not found'}), 404
+
     # Add vote count for officials/admins
     response = format_election_response(election)
     if user_role in ['official', 'admin']:
@@ -351,6 +359,14 @@ def get_election_results(election_id):
     election = elections_collection.find_one({'election_id': election_id})
     if not election:
         return jsonify({'error': 'Election not found'}), 404
+
+    # Students can only see results for elections they were eligible for
+    if user_role == 'student':
+        eligible_programmes = election.get('eligible_programmes', [])
+        if eligible_programmes:
+            student_code = (user.get('programme') or {}).get('code')
+            if student_code not in [p['code'] for p in eligible_programmes]:
+                return jsonify({'error': 'Election not found'}), 404
 
     # Check if results can be viewed
     if election['status'] == 'draft':
