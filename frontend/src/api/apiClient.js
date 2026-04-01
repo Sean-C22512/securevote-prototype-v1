@@ -59,13 +59,20 @@ export const login = async (studentId, password) => {
   }
 };
 
-export const register = async (studentId, password, email) => {
+export const register = async (studentId, password, email, programme) => {
   try {
-    const payload = { student_id: studentId, password };
-    if (email) {
-      payload.email = email;
-    }
+    const payload = { student_id: studentId, password, programme };
+    if (email) payload.email = email;
     const response = await apiClient.post('/auth/register', payload);
+    return response.data;
+  } catch (error) {
+    throw error.response ? error.response.data : error.message;
+  }
+};
+
+export const fetchProgrammes = async () => {
+  try {
+    const response = await apiClient.get('/programmes');
     return response.data;
   } catch (error) {
     throw error.response ? error.response.data : error.message;

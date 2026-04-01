@@ -180,6 +180,7 @@ def prepare_election_document(data: Dict[str, Any], created_by: str) -> Dict[str
         'end_time': end_time,
         'started_at': None,
         'ended_at': None,
+        'eligible_programmes': data.get('eligible_programmes', []),
         'settings': {
             'allow_multiple_votes': False,
             'require_verification': False
@@ -242,7 +243,8 @@ def format_election_response(election: Dict[str, Any], include_id: bool = False)
         'end_time': election['end_time'].isoformat() if election.get('end_time') else None,
         'started_at': election['started_at'].isoformat() if election.get('started_at') else None,
         'ended_at': election['ended_at'].isoformat() if election.get('ended_at') else None,
-        'settings': election.get('settings', {})
+        'settings': election.get('settings', {}),
+        'eligible_programmes': election.get('eligible_programmes', [])
     }
 
     if include_id:

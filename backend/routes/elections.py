@@ -78,7 +78,17 @@ def list_elections():
                      .skip(skip)
                      .limit(limit))
 
-    total = elections_collection.count_documents(query)
+    # Filter by programme eligibility for students
+    if user_role == 'student':
+        student_code = (user.get('programme') or {}).get('code')
+        def is_eligible(election):
+            eligible = election.get('eligible_programmes', [])
+            if not eligible:
+                return True  # open to all
+            return student_code in [p['code'] for p in eligible]
+        elections = [e for e in elections if is_eligible(e)]
+
+    total = len(elections)
 
     return jsonify({
         'elections': [format_election_response(e) for e in elections],

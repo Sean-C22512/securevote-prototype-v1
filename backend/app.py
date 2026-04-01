@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
+from data.tud_programmes import TUD_PROGRAMMES, PROGRAMMES_BY_CODE
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import jwt
@@ -83,16 +84,23 @@ candidates = [
     {"id": 3, "name": "Candidate C", "party": "Party Gamma"}
 ]
 
+@app.route('/programmes', methods=['GET'])
+def get_programmes():
+    """Return the full TUD programme catalogue."""
+    return jsonify({'programmes': TUD_PROGRAMMES})
+
+
 @app.route('/auth/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
     """
-    Register a new user.
+    Register a new student account.
 
     Body: {
         "student_id": "C22512873",
         "password": "SecurePass123",
-        "email": "student@tudublin.ie"  // Optional
+        "email": "student@tudublin.ie",  // Optional
+        "programme": {"code": "TU856", "name": "Computer Science"}  // Required
     }
 
     Returns: { "message": "...", "student_id": "..." }
@@ -101,6 +109,7 @@ def register():
     student_id = data.get('student_id')
     password = data.get('password')
     email = data.get('email')
+    programme = data.get('programme')
 
     # Validate required fields
     if not student_id:
@@ -108,6 +117,12 @@ def register():
 
     if not password:
         return jsonify({'error': 'Password is required'}), 400
+
+    if not programme or not programme.get('code') or not programme.get('name'):
+        return jsonify({'error': 'Programme is required'}), 400
+
+    if programme['code'] not in PROGRAMMES_BY_CODE:
+        return jsonify({'error': 'Invalid programme code'}), 400
 
     # Validate password strength
     is_valid, errors = validate_password_strength(password)
@@ -131,6 +146,7 @@ def register():
         'password_hash': password_hash,
         'email': email,
         'role': 'student',
+        'programme': {'code': programme['code'], 'name': programme['name']},
         'created_at': datetime.datetime.now(datetime.timezone.utc)
     }
     users_collection.insert_one(user)
@@ -247,6 +263,15 @@ def cast_vote():
                 return jsonify({'error': 'Election has ended'}), 400
             else:
                 return jsonify({'error': f'Election is {status}'}), 400
+
+        # Check programme eligibility
+        eligible_programmes = election.get('eligible_programmes', [])
+        if eligible_programmes:
+            student_programme = user.get('programme', {})
+            student_code = student_programme.get('code') if student_programme else None
+            eligible_codes = [p['code'] for p in eligible_programmes]
+            if student_code not in eligible_codes:
+                return jsonify({'error': 'You are not eligible to vote in this election'}), 403
 
         # Get candidate from election
         candidate = next((c for c in election['candidates'] if c['id'] == candidate_id), None)

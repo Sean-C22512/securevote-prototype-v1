@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gem, LogOut, Plus, X, Loader2, Play, Square, Trash2, Users2,
-         Edit2, ChevronLeft } from 'lucide-react';
+         Edit2, ChevronLeft, Search } from 'lucide-react';
 import {
   fetchElections, createElection, updateElection, deleteElection,
-  startElection, endElection, addCandidate, removeCandidate,
+  startElection, endElection, addCandidate, removeCandidate, fetchProgrammes,
 } from '../../api/apiClient';
 import DOMPurify from 'dompurify';
 
@@ -61,12 +61,19 @@ const ElectionManagement = () => {
   const [newElection,        setNewElection]        = useState({
     title: '', description: '',
     candidates: [{ name: '', party: '' }, { name: '', party: '' }],
+    eligible_programmes: [],
   });
-  const [newCandidate, setNewCandidate] = useState({ name: '', description: '' });
+  const [newCandidate,       setNewCandidate]       = useState({ name: '', description: '' });
+  const [programmes,         setProgrammes]         = useState([]);
+  const [progSearch,         setProgSearch]         = useState('');
+  const [allStudents,        setAllStudents]        = useState(true);
   const navigate  = useNavigate();
   const userRole  = localStorage.getItem('role');
 
-  useEffect(() => { loadElections(); }, []);
+  useEffect(() => {
+    loadElections();
+    fetchProgrammes().then(d => setProgrammes(d.programmes || [])).catch(() => {});
+  }, []);
 
   const loadElections = async () => {
     try {
@@ -81,6 +88,21 @@ const ElectionManagement = () => {
 
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 
+  const filteredProgrammes = programmes.filter(p => {
+    const q = progSearch.toLowerCase();
+    return p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q);
+  });
+
+  const toggleProgramme = (prog) => {
+    const already = newElection.eligible_programmes.some(p => p.code === prog.code);
+    setNewElection({
+      ...newElection,
+      eligible_programmes: already
+        ? newElection.eligible_programmes.filter(p => p.code !== prog.code)
+        : [...newElection.eligible_programmes, { code: prog.code, name: prog.name }],
+    });
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
@@ -94,12 +116,15 @@ const ElectionManagement = () => {
             name:  DOMPurify.sanitize(c.name.trim()),
             party: c.party.trim() ? DOMPurify.sanitize(c.party.trim()) : undefined,
           })),
+        eligible_programmes: allStudents ? [] : newElection.eligible_programmes,
       };
       if (payload.candidates.length < 2) { setError('At least 2 candidates are required'); return; }
       await createElection(payload);
       flash('Election created successfully');
       setShowCreateModal(false);
-      setNewElection({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }] });
+      setNewElection({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }], eligible_programmes: [] });
+      setAllStudents(true);
+      setProgSearch('');
       loadElections();
     } catch (err) {
       setError(err?.error || 'Failed to create election');
@@ -356,6 +381,95 @@ const ElectionManagement = () => {
               onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
               placeholder="Describe the election&hellip;" />
           </div>
+          {/* Eligibility */}
+          <div>
+            <label className="sv-label">Eligible Students</label>
+            <div className="flex items-center gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() => setAllStudents(true)}
+                className={allStudents ? 'sv-btn-primary' : 'sv-btn-outline'}
+                style={{ padding: '6px 14px', fontSize: 11 }}>
+                All Students
+              </button>
+              <button
+                type="button"
+                onClick={() => setAllStudents(false)}
+                className={!allStudents ? 'sv-btn-primary' : 'sv-btn-outline'}
+                style={{ padding: '6px 14px', fontSize: 11 }}>
+                Specific Programmes
+              </button>
+            </div>
+
+            {!allStudents && (
+              <div style={{ border: '1px solid var(--sv-border)', borderRadius: 2, overflow: 'hidden' }}>
+                {/* Search */}
+                <div className="flex items-center gap-2 px-3 py-2"
+                     style={{ borderBottom: '1px solid var(--sv-border)', background: 'rgba(228,235,248,0.02)' }}>
+                  <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--sv-text-muted)' }} />
+                  <input
+                    type="text"
+                    value={progSearch}
+                    onChange={(e) => setProgSearch(e.target.value)}
+                    placeholder="Search by code or name…"
+                    className="flex-1 bg-transparent outline-none text-sm text-white placeholder-gray-500"
+                    style={{ border: 'none' }}
+                  />
+                </div>
+
+                {/* Selected tags */}
+                {newElection.eligible_programmes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-3 py-2"
+                       style={{ borderBottom: '1px solid var(--sv-border)' }}>
+                    {newElection.eligible_programmes.map(p => (
+                      <span key={p.code}
+                            className="flex items-center gap-1 font-mono text-[10px] px-2 py-1"
+                            style={{ background: 'rgba(0,159,227,0.12)', border: '1px solid rgba(0,159,227,0.25)',
+                                     borderRadius: 2, color: 'var(--sv-cyan)' }}>
+                        {p.code}
+                        <button type="button" onClick={() => toggleProgramme(p)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}>
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* List */}
+                <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {filteredProgrammes.length === 0 ? (
+                    <p className="text-xs text-center py-4" style={{ color: 'var(--sv-text-muted)' }}>No matches</p>
+                  ) : (
+                    filteredProgrammes.map(p => {
+                      const selected = newElection.eligible_programmes.some(ep => ep.code === p.code);
+                      return (
+                        <div key={p.code}
+                             onClick={() => toggleProgramme(p)}
+                             className="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors"
+                             style={{ background: selected ? 'rgba(0,159,227,0.08)' : 'transparent' }}
+                             onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(228,235,248,0.03)'; }}
+                             onMouseLeave={e => { e.currentTarget.style.background = selected ? 'rgba(0,159,227,0.08)' : 'transparent'; }}>
+                          <span className="font-mono text-[11px] shrink-0" style={{ color: 'var(--sv-cyan)', width: 52 }}>
+                            {p.code}
+                          </span>
+                          <span className="text-sm text-white leading-snug flex-1">{p.name}</span>
+                          {selected && <span className="font-mono text-[9px]" style={{ color: 'var(--sv-lime)' }}>✓</span>}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {newElection.eligible_programmes.length > 0 && (
+                  <p className="font-mono text-[10px] px-3 py-2" style={{ color: 'var(--sv-text-muted)', borderTop: '1px solid var(--sv-border)' }}>
+                    {newElection.eligible_programmes.length} programme{newElection.eligible_programmes.length !== 1 ? 's' : ''} selected
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="sv-label">Candidates (min 2)</label>
             <div className="space-y-2">
