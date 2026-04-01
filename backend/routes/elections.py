@@ -386,7 +386,7 @@ def get_election_results(election_id):
         'title': election['title'],
         'status': election['status'],
         'total_votes': len(votes),
-        'results': [{'candidate': name, 'votes': count} for name, count in sorted_results],
+        'results': [{'name': name, 'votes': count} for name, count in sorted_results],
         'tally': tally,
         'failed_decryptions': failed_decryptions if user_role == 'admin' else None
     })
