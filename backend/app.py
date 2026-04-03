@@ -264,9 +264,9 @@ def cast_vote():
             else:
                 return jsonify({'error': f'Election is {status}'}), 400
 
-        # Check programme eligibility
+        # Check programme eligibility (students only; officials/admins can vote in any election)
         eligible_programmes = election.get('eligible_programmes', [])
-        if eligible_programmes:
+        if eligible_programmes and user.get('role', 'student') == 'student':
             student_programme = user.get('programme', {})
             student_code = student_programme.get('code') if student_programme else None
             eligible_codes = [p['code'] for p in eligible_programmes]
