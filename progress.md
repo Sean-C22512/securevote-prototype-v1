@@ -3,6 +3,8 @@
 This document summarises exactly what has been built in the SecureVote prototype to date.
 It is intended as a technical briefing for Gemini / NotebookLM.
 
+<!-- RSA key persistence via host bind mount added 2026-04-03 -->
+
 ---
 
 ## Project Overview
