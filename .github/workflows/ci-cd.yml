@@ -94,8 +94,8 @@ jobs:
           echo "$EC2_KEY" > key.pem
           chmod 600 key.pem
 
-          # Copy backend source
-          rsync -az -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
+          # Copy backend source (exclude keys/ — RSA keys are persisted on the host)
+          rsync -az --exclude='keys/' -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
             backend/ $EC2_USER@$EC2_HOST:/home/ec2-user/backend/
 
           # Build and restart container (bound to localhost — nginx proxies externally)
@@ -103,10 +103,12 @@ jobs:
             cd /home/ec2-user/backend
             docker build -t securevote-backend .
             docker rm -f securevote-backend || true
+            mkdir -p /home/ec2-user/keys
             docker run -d \
               --name securevote-backend \
               --restart unless-stopped \
               -p 127.0.0.1:5001:5001 \
+              -v /home/ec2-user/keys:/app/keys \
               -e MONGO_URI="$MONGO_URI" \
               -e SECRET_KEY="$SECRET_KEY" \
               -e FLASK_ENV=production \
