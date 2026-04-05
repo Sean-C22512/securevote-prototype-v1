@@ -17,6 +17,8 @@ const Register = () => {
 
   // Programme picker state
   const [programmes,       setProgrammes]       = useState([]);
+  const [progLoading,      setProgLoading]      = useState(true);
+  const [progError,        setProgError]        = useState(false);
   const [selectedProg,     setSelectedProg]     = useState(null);   // {code, name, faculty}
   const [progSearch,       setProgSearch]       = useState('');
   const [progOpen,         setProgOpen]         = useState(false);
@@ -24,9 +26,17 @@ const Register = () => {
   const dropdownRef = useRef(null);
   const navigate    = useNavigate();
 
+  const loadProgrammes = () => {
+    setProgLoading(true);
+    setProgError(false);
+    fetchProgrammes()
+      .then(d => { setProgrammes(d.programmes || []); setProgLoading(false); })
+      .catch(() => { setProgError(true); setProgLoading(false); });
+  };
+
   useEffect(() => {
     getPasswordRequirements().then(setRequirements).catch(() => {});
-    fetchProgrammes().then(d => setProgrammes(d.programmes || [])).catch(() => {});
+    loadProgrammes();
   }, []);
 
   // Close dropdown on outside click
@@ -36,8 +46,8 @@ const Register = () => {
         setProgOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
   }, []);
 
   const filteredProgrammes = programmes.filter(p => {
@@ -230,7 +240,19 @@ const Register = () => {
 
                     {/* Results */}
                     <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                      {Object.keys(grouped).length === 0 ? (
+                      {progLoading ? (
+                        <p className="text-xs text-center py-6" style={{ color: 'var(--sv-text-muted)' }}>
+                          Loading programmes…
+                        </p>
+                      ) : progError ? (
+                        <div className="text-center py-6">
+                          <p className="text-xs mb-2" style={{ color: 'var(--sv-text-muted)' }}>Failed to load programmes</p>
+                          <button type="button" onClick={loadProgrammes}
+                                  className="text-xs underline" style={{ color: 'var(--sv-cyan)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                            Retry
+                          </button>
+                        </div>
+                      ) : Object.keys(grouped).length === 0 ? (
                         <p className="text-xs text-center py-6" style={{ color: 'var(--sv-text-muted)' }}>
                           No programmes match
                         </p>
