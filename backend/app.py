@@ -27,7 +27,11 @@ allowed_origins = ['http://localhost:3000']
 frontend_url = os.getenv('FRONTEND_URL')
 if frontend_url:
     allowed_origins.extend([u.strip() for u in frontend_url.split(',') if u.strip()])
-CORS(app, origins=allowed_origins)
+CORS(app,
+     origins=allowed_origins,
+     allow_headers=['Content-Type', 'Authorization'],
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+     max_age=600)
 
 # SECRET_KEY for JWT encoding
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'securevote-prototype-secret-key')

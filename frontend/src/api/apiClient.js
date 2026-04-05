@@ -72,7 +72,10 @@ export const register = async (studentId, password, email, programme) => {
 
 export const fetchProgrammes = async () => {
   try {
-    const response = await apiClient.get('/programmes');
+    // No Content-Type on GET — keeps it a simple request (no CORS preflight)
+    const response = await apiClient.get('/programmes', {
+      headers: { 'Content-Type': undefined }
+    });
     return response.data;
   } catch (error) {
     throw error.response ? error.response.data : error.message;
