@@ -113,7 +113,7 @@ jobs:
               -e SECRET_KEY="$SECRET_KEY" \
               -e FLASK_ENV=production \
               -e RSA_KEY_PASSPHRASE="" \
-              -e FRONTEND_URL="https://www.securevote.ie" \
+              -e FRONTEND_URL="https://www.securevote.ie,https://securevote.ie" \
               -e WEBAUTHN_RP_ID="api.securevote.ie" \
               -e WEBAUTHN_RP_NAME="SecureVote" \
               -e WEBAUTHN_ORIGIN="https://www.securevote.ie" \
