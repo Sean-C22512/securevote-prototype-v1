@@ -173,10 +173,12 @@ def _build_authentication_credential(data):
 # ---------------------------------------------------------------------------
 
 def _rp():
+    origin_env = os.getenv('WEBAUTHN_ORIGIN', 'http://localhost:3000')
+    origins = [o.strip() for o in origin_env.split(',') if o.strip()]
     return {
         'rp_id':   os.getenv('WEBAUTHN_RP_ID',   'localhost'),
         'rp_name': os.getenv('WEBAUTHN_RP_NAME',  'SecureVote'),
-        'origin':  os.getenv('WEBAUTHN_ORIGIN',   'http://localhost:3000'),
+        'origin':  origins if len(origins) > 1 else origins[0],
     }
 
 
