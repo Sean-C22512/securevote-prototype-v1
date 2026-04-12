@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gem, Activity, Users, ClipboardList, Settings, LogOut,
   CheckCircle2, Loader2, AlertTriangle, Clock, Hash,
-  RefreshCw, Link2, ShieldCheck, ShieldAlert, List, LayoutGrid,
+  RefreshCw, Link2, ShieldAlert, List, LayoutGrid,
 } from 'lucide-react';
 import { fetchAuditBlocks, fetchAuditStats, fetchElections } from '../../api/apiClient';
 
@@ -271,10 +271,6 @@ const AuditLog = () => {
         return diff < 1 ? 'just now' : `${diff} min ago`;
       })()
     : '—';
-
-  const avgHashLen = stats?.chain_length && stats.total_votes
-    ? Math.round((stats.chain_length / (stats.total_votes || 1)) * 64)
-    : stats?.chain_length ? 64 : 0;
 
   return (
     <div className="min-h-screen flex sv-bg-admin">
