@@ -6,7 +6,7 @@ import {
   CheckCircle2, Loader2, AlertTriangle, Clock, Hash,
   RefreshCw, Link2, ShieldAlert, List, LayoutGrid,
 } from 'lucide-react';
-import { fetchAuditBlocks, fetchAuditStats, fetchElections } from '../../api/apiClient';
+import { fetchAuditBlocks, fetchElections } from '../../api/apiClient';
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
@@ -192,7 +192,7 @@ const AuditLog = () => {
   const [statusFilter,     setStatusFilter]     = useState('');
   const [view,             setView]             = useState('blockchain'); // 'blockchain' | 'table'
   const [blockData,        setBlockData]        = useState(null);
-  const [stats,            setStats]            = useState(null);
+
   const [loading,          setLoading]          = useState(true);
   const [running,          setRunning]          = useState(false);
   const [error,            setError]            = useState('');
@@ -202,14 +202,12 @@ const AuditLog = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [electionsData, blocks, statsData] = await Promise.all([
+        const [electionsData, blocks] = await Promise.all([
           fetchElections(),
           fetchAuditBlocks(),
-          fetchAuditStats(),
         ]);
         setElections(electionsData.elections || []);
         setBlockData(blocks);
-        setStats(statsData);
       } catch {
         setError('Failed to load audit data');
       } finally {
@@ -223,12 +221,8 @@ const AuditLog = () => {
     setRunning(true);
     setError('');
     try {
-      const [blocks, statsData] = await Promise.all([
-        fetchAuditBlocks(selectedElection || null, statusFilter),
-        fetchAuditStats(selectedElection || null),
-      ]);
+      const blocks = await fetchAuditBlocks(selectedElection || null, statusFilter);
       setBlockData(blocks);
-      setStats(statsData);
     } catch {
       setError('Integrity check failed');
     } finally {
