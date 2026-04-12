@@ -355,4 +355,16 @@ export const fetchAuditStats = async (electionId = null) => {
   }
 };
 
+export const fetchAuditBlocks = async (electionId = null, status = '') => {
+  try {
+    const params = {};
+    if (electionId) params.election_id = electionId;
+    if (status) params.status = status;
+    const response = await apiClient.get('/audit/blocks', { params });
+    return response.data;
+  } catch (error) {
+    throw error.response ? error.response.data : error.message;
+  }
+};
+
 export default apiClient;

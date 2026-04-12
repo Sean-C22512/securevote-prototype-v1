@@ -504,6 +504,79 @@ def audit_stats():
     return jsonify(response)
 
 
+@app.route('/audit/blocks', methods=['GET'])
+@require_role('admin')
+def audit_blocks():
+    """
+    Returns per-block verification data for the audit trail view.
+    Each block includes its hashes and individual verification status.
+    Requires 'admin' role.
+
+    Query params:
+    - election_id: Optional. Defaults to env var.
+    - status: Optional. 'verified' or 'tampered' to filter.
+    """
+    election_id = request.args.get('election_id') or os.getenv('ELECTION_ID', 'TUD-SU-ELECTION-2025')
+    status_filter = request.args.get('status', '')
+
+    votes = list(votes_collection.find(
+        {'election_id': election_id},
+        sort=[('timestamp', 1)]
+    ))
+
+    if not votes:
+        return jsonify({
+            'blocks': [],
+            'verified_count': 0,
+            'tampered_count': 0,
+            'chain_valid': True,
+            'total': 0,
+            'election_id': election_id,
+            'last_verified': datetime.datetime.utcnow().isoformat()
+        })
+
+    # Run per-block verification via BallotCrypto
+    chain_result = ballot_crypto.verify_chain(votes)
+    details = chain_result.get('details', [])
+    broken_at = chain_result.get('broken_at', -1)
+
+    blocks = []
+    for i, vote in enumerate(votes):
+        detail = details[i] if i < len(details) else {'valid': False}
+        # Votes after the break are also considered invalid
+        is_verified = detail.get('valid', False) and (broken_at == -1 or i < broken_at or chain_result['valid'])
+        block = {
+            'index': i + 1,
+            'vote_id': f'VOTE-{str(i + 1).zfill(3)}',
+            'timestamp': vote['timestamp'].isoformat(),
+            'current_hash': vote.get('current_hash', ''),
+            'previous_hash': vote.get('previous_hash', 'GENESIS'),
+            'verified': is_verified,
+            'hash_valid': detail.get('hash_valid', False),
+            'chain_valid': detail.get('chain_valid', False),
+        }
+        blocks.append(block)
+
+    verified_count = sum(1 for b in blocks if b['verified'])
+    tampered_count = len(blocks) - verified_count
+
+    # Apply status filter
+    if status_filter == 'verified':
+        blocks = [b for b in blocks if b['verified']]
+    elif status_filter == 'tampered':
+        blocks = [b for b in blocks if not b['verified']]
+
+    return jsonify({
+        'blocks': blocks,
+        'verified_count': verified_count,
+        'tampered_count': tampered_count,
+        'chain_valid': chain_result['valid'],
+        'total': len(votes),
+        'election_id': election_id,
+        'last_verified': datetime.datetime.utcnow().isoformat()
+    })
+
+
 # ============================================================================
 # Admin User Management Endpoints
 # ============================================================================
