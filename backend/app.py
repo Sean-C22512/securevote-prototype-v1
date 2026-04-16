@@ -590,7 +590,7 @@ def list_users():
     """
     users = list(users_collection.find(
         {},
-        {'_id': 0, 'student_id': 1, 'role': 1, 'created_at': 1}
+        {'_id': 0, 'student_id': 1, 'role': 1, 'created_at': 1, 'password_hash': 1, 'email': 1}
     ))
 
     # Add default role for legacy users
@@ -599,6 +599,7 @@ def list_users():
             user['role'] = 'student'
         if 'created_at' in user:
             user['created_at'] = user['created_at'].isoformat()
+        user['has_password'] = bool(user.pop('password_hash', None))
 
     return jsonify({
         'users': users,
