@@ -249,7 +249,8 @@ const AuditLog = () => {
   useEffect(() => {
     const calc = (iso) => {
       if (!iso) return '—';
-      const diff = Math.round((Date.now() - new Date(iso)) / 60000);
+      const utcIso = iso.endsWith('Z') ? iso : iso + 'Z';
+      const diff = Math.round((Date.now() - new Date(utcIso)) / 60000);
       return diff < 1 ? 'just now' : `${diff} min ago`;
     };
     setTimeSinceScan(calc(blockData?.last_verified));
@@ -274,7 +275,7 @@ const AuditLog = () => {
     : 100;
 
   const fmtLastVerified = lastVerified
-    ? new Date(lastVerified).toLocaleString('en-IE', {
+    ? new Date(lastVerified.endsWith('Z') ? lastVerified : lastVerified + 'Z').toLocaleString('en-IE', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: false,
       })
