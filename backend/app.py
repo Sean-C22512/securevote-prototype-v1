@@ -455,9 +455,13 @@ def audit_stats():
     Query params:
     - election_id: Optional. If not provided, uses legacy env var.
     """
-    election_id = request.args.get('election_id') or os.getenv('ELECTION_ID', 'TUD-SU-ELECTION-2025')
+    election_id = request.args.get('election_id') or None
+    global_mode = election_id is None  # no election specified — return system-wide totals
 
-    total_votes = votes_collection.count_documents({'election_id': election_id})
+    if not election_id:
+        election_id = os.getenv('ELECTION_ID', 'TUD-SU-ELECTION-2025')
+
+    total_votes = votes_collection.count_documents({}) if global_mode else votes_collection.count_documents({'election_id': election_id})
     total_users = users_collection.count_documents({})
 
     # Get election details if it's a managed election
