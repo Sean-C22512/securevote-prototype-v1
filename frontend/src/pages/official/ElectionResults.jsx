@@ -63,8 +63,13 @@ const ElectionResults = () => {
         new Promise(resolve => setTimeout(resolve, 2000)),
       ]);
       setVerification(result);
-    } catch {
-      setError('Verification failed');
+    } catch (err) {
+      // A broken chain returns 400 with valid:false — treat as a result, not an error
+      if (err && typeof err === 'object' && 'valid' in err) {
+        setVerification(err);
+      } else {
+        setError('Verification failed');
+      }
     } finally {
       setVerifying(false);
     }
@@ -284,9 +289,14 @@ const ElectionResults = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Blocks Verified', value: verification.total_votes || verification.blocks_verified || 0 },
-                    { label: 'Hash Chain',       value: verification.valid ? 'Intact' : 'Broken' },
-                    { label: 'Verified At',      value: new Date().toLocaleTimeString() },
+                    { label: 'Blocks Verified',   value: verification.valid
+                        ? (verification.total_votes || 0)
+                        : (verification.verified_before_break ?? 0) },
+                    { label: 'Hash Chain',         value: verification.valid ? 'Intact' : 'Broken' },
+                    { label: verification.valid ? 'Verified At' : 'Breach At Block',
+                      value: verification.valid
+                        ? new Date().toLocaleTimeString()
+                        : `#${(verification.broken_at ?? 0) + 1}` },
                   ].map((s) => (
                     <div key={s.label} className="p-3 text-center"
                          style={{ background: 'rgba(228,235,248,0.03)', border: '1px solid var(--sv-border)', borderRadius: 2 }}>
