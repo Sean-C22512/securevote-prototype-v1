@@ -6,13 +6,21 @@ import { startRegistration } from '@simplewebauthn/browser';
 import { getCurrentUser, webAuthnRegisterBegin, webAuthnRegisterComplete } from '../api/apiClient';
 
 const WebAuthnSetup = () => {
+  // Array of credential objects already registered for this user
   const [credentials,      setCredentials]      = useState([]);
+  // Separate count from the backend (mirrors credentials.length, surfaced as a badge)
   const [credentialCount,  setCredentialCount]  = useState(0);
+  // True while the initial user profile is being fetched
   const [loading,          setLoading]          = useState(true);
+  // True while the WebAuthn registration ceremony is in progress
   const [registering,      setRegistering]      = useState(false);
+  // Success message shown after a new biometric is added
   const [message,          setMessage]          = useState('');
+  // Error message shown if registration fails
   const [error,            setError]            = useState('');
 
+  // Load the current user's registered WebAuthn credentials from the backend
+  // Wrapped in useCallback so it can be safely called after a new registration completes
   const loadCredentials = useCallback(async () => {
     try {
       const data = await getCurrentUser();
@@ -25,8 +33,13 @@ const WebAuthnSetup = () => {
     }
   }, []);
 
+  // Fetch credentials on mount
   useEffect(() => { loadCredentials(); }, [loadCredentials]);
 
+  // Run the full WebAuthn registration ceremony:
+  // Step 1 — ask the backend for a challenge (server-side nonce)
+  // Step 2 — prompt the browser to generate a credential using the device authenticator
+  // Step 3 — send the signed credential back to the backend for verification and storage
   const handleAddBiometric = async () => {
     setError('');
     setMessage('');
@@ -36,6 +49,7 @@ const WebAuthnSetup = () => {
       const registrationResponse = await startRegistration(options);
       await webAuthnRegisterComplete(registrationResponse);
       setMessage('Biometric added successfully!');
+      // Refresh the credentials list so the new device appears immediately
       await loadCredentials();
     } catch (err) {
       if (err?.name === 'NotAllowedError') {
@@ -65,18 +79,20 @@ const WebAuthnSetup = () => {
 
       <div className="max-w-2xl mx-auto px-6 py-12">
 
+        {/* Back link to the student dashboard */}
         <Link to="/dashboard"
               style={{ textDecoration: 'none' }}
               className="sv-btn-ghost pl-0 text-xs mb-10 inline-flex">
           <ChevronLeft className="w-3.5 h-3.5" /> Back to Dashboard
         </Link>
 
+        {/* Page fade-in animation */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.38 }}
         >
-          {/* Header */}
+          {/* Header — icon, section label, and page title */}
           <div className="flex items-start gap-4 mb-10">
             <div className="w-12 h-12 flex items-center justify-center shrink-0"
                  style={{ background: 'rgba(0,159,227,0.08)', border: '1px solid rgba(0,159,227,0.16)', borderRadius: 2 }}>
@@ -97,6 +113,7 @@ const WebAuthnSetup = () => {
 
           <div className="sv-card p-8">
 
+            {/* Success banner — appears after a new biometric is successfully registered */}
             {message && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -107,6 +124,7 @@ const WebAuthnSetup = () => {
               </motion.div>
             )}
 
+            {/* Error banner */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -117,10 +135,11 @@ const WebAuthnSetup = () => {
               </motion.div>
             )}
 
-            {/* Registered devices section */}
+            {/* Registered devices section — lists all passkeys already on the account */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
                 <p className="sv-label" style={{ marginBottom: 0 }}>Registered Devices</p>
+                {/* Badge showing total active credential count */}
                 {credentialCount > 0 && (
                   <span className="sv-badge-official">{credentialCount} active</span>
                 )}
@@ -133,6 +152,7 @@ const WebAuthnSetup = () => {
                 </div>
 
               ) : credentials.length === 0 ? (
+                // Empty state — user has no biometrics registered yet
                 <div className="flex items-center gap-3 p-4"
                      style={{ border: '1px solid var(--sv-border)', borderRadius: 2,
                               background: 'rgba(228,235,248,0.02)' }}>
@@ -143,6 +163,7 @@ const WebAuthnSetup = () => {
                 </div>
 
               ) : (
+                // Render a row for each registered passkey, showing its name and registration date
                 <div className="space-y-2">
                   {credentials.map((cred, i) => (
                     <div key={cred.credential_id || i}
@@ -169,6 +190,7 @@ const WebAuthnSetup = () => {
 
             <div className="sv-divider mb-8" />
 
+            {/* Add Biometric button — triggers the WebAuthn registration flow */}
             <motion.button
               whileHover={{ scale: registering ? 1 : 1.012 }}
               whileTap={{ scale: registering ? 1 : 0.988 }}
@@ -183,6 +205,7 @@ const WebAuthnSetup = () => {
             </motion.button>
           </div>
 
+          {/* Privacy note — reassure the user the private key never leaves their device */}
           <p className="font-mono text-[10px] leading-relaxed tracking-[0.08em] mt-5"
              style={{ color: 'var(--sv-text-muted)' }}>
             Your biometric credential is stored only on this device.

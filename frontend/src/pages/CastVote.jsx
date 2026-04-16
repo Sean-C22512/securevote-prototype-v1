@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gem, LogOut, AlertCircle, ChevronLeft, Vote, Loader2, Check } from 'lucide-react';
 import { fetchElections, castVote } from '../api/apiClient';
 
+// Shared navigation bar component used across student-facing pages
 const StudentNav = ({ handleLogout, activePage }) => (
   <nav className="sv-nav px-6 py-4">
     <div className="max-w-3xl mx-auto flex items-center justify-between">
@@ -20,6 +21,7 @@ const StudentNav = ({ handleLogout, activePage }) => (
               style={{ color: 'var(--sv-text-muted)', textDecoration: 'none' }}>
           Home
         </Link>
+        {/* "Vote" is highlighted in cyan to indicate this is the current page */}
         <span className="font-mono text-[11px] tracking-[0.10em] uppercase" style={{ color: 'var(--sv-cyan)' }}>
           Vote
         </span>
@@ -38,17 +40,26 @@ const StudentNav = ({ handleLogout, activePage }) => (
 );
 
 const CastVote = () => {
+  // The list of active elections the student is eligible to vote in
   const [elections,          setElections]          = useState([]);
+  // The election the student has clicked into, or null if still choosing
   const [selectedElection,   setSelectedElection]   = useState(null);
+  // The ID of the candidate the student has tapped/clicked
   const [selectedCandidate,  setSelectedCandidate]  = useState(null);
+  // Error message shown in the red alert banner
   const [error,              setError]              = useState('');
+  // True once the vote has been accepted by the backend
   const [success,            setSuccess]            = useState(false);
+  // True while the initial elections list is loading
   const [loading,            setLoading]            = useState(true);
+  // True while the vote submission is in flight
   const [submitting,         setSubmitting]         = useState(false);
   const navigate = useNavigate();
 
+  // Load active elections as soon as the component mounts
   useEffect(() => { loadElections(); }, []);
 
+  // Fetch only elections with status "active" and auto-select if there is exactly one
   const loadElections = async () => {
     try {
       const data   = await fetchElections('active');
@@ -62,6 +73,7 @@ const CastVote = () => {
     }
   };
 
+  // Submit the selected candidate's vote to the backend
   const handleSubmit = async () => {
     if (!selectedCandidate || !selectedElection) { setError('Please select a candidate'); return; }
     setSubmitting(true);
@@ -83,6 +95,7 @@ const CastVote = () => {
     }
   };
 
+  // Clear the session and return to the login page
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -90,6 +103,7 @@ const CastVote = () => {
     navigate('/');
   };
 
+  // Go back to the election selection screen, resetting any in-progress selection
   const handleBack = () => {
     setSelectedElection(null);
     setSelectedCandidate(null);
@@ -101,6 +115,7 @@ const CastVote = () => {
       <StudentNav handleLogout={handleLogout} />
 
       <div className="max-w-3xl mx-auto px-6 py-12">
+        {/* AnimatePresence lets the current "screen" animate out before the next one animates in */}
         <AnimatePresence mode="wait">
 
           {/* ── Vote confirmed ── */}
@@ -117,6 +132,7 @@ const CastVote = () => {
                   <Check className="w-10 h-10" style={{ color: 'var(--sv-lime)' }} strokeWidth={2.5} />
                 </div>
               </div>
+              {/* Ceremonial confirmation message */}
               <h2 className="font-display font-black text-white mb-2"
                   style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', letterSpacing: '-0.02em' }}>
                 VOTE RECORDED.
@@ -162,7 +178,7 @@ const CastVote = () => {
               </Link>
             </motion.div>
 
-          /* ── Election picker ── */
+          /* ── Election picker — shown when there are multiple elections to choose from ── */
           ) : !selectedElection ? (
             <motion.div key="select"
               initial={{ opacity: 0, y: 14 }}
@@ -180,6 +196,7 @@ const CastVote = () => {
                 <div className="sv-alert-error mb-6">{error}</div>
               )}
 
+              {/* Each election is a clickable card — clicking sets it as the selected election */}
               <div className="space-y-3">
                 {elections.map((election) => (
                   <motion.button
@@ -207,12 +224,13 @@ const CastVote = () => {
               </div>
             </motion.div>
 
-          /* ── Candidate picker ── */
+          /* ── Candidate picker — the actual ballot screen ── */
           ) : (
             <motion.div key="vote"
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
             >
+              {/* Back button returns to the election list without losing the elections data */}
               <button
                 onClick={handleBack}
                 className="sv-btn-ghost mb-8 pl-0 text-xs"
@@ -220,7 +238,7 @@ const CastVote = () => {
                 <ChevronLeft className="w-3.5 h-3.5" /> All Elections
               </button>
 
-              {/* Election header */}
+              {/* Election header — shows the election title and description */}
               <div className="flex items-start gap-3 mb-8">
                 <div className="w-9 h-9 flex items-center justify-center shrink-0 mt-0.5"
                      style={{ background: 'rgba(0,159,227,0.08)', border: '1px solid rgba(0,159,227,0.14)', borderRadius: 2 }}>
@@ -246,7 +264,7 @@ const CastVote = () => {
               {/* Divider */}
               <div className="sv-divider mb-6" />
 
-              {/* Candidates */}
+              {/* Candidates — each is a tappable card; the selected one gets the sv-selected highlight */}
               <div className="space-y-3 mb-8">
                 {selectedElection.candidates && selectedElection.candidates.length > 0 ? (
                   selectedElection.candidates.map((candidate, idx) => {
@@ -260,7 +278,7 @@ const CastVote = () => {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            {/* Position number */}
+                            {/* Position number — cyan when selected, muted when not */}
                             <span className="font-mono font-semibold shrink-0"
                                   style={{ fontSize: 13, color: isSelected ? 'var(--sv-cyan)' : 'var(--sv-text-muted)' }}>
                               {String(idx + 1).padStart(2, '0')}
@@ -277,7 +295,7 @@ const CastVote = () => {
                               )}
                             </div>
                           </div>
-                          {/* Selection indicator */}
+                          {/* Selection indicator — filled cyan checkbox when chosen, outlined when not */}
                           <div className="shrink-0 ml-4 w-5 h-5 flex items-center justify-center"
                                style={{
                                  border: `1px solid ${isSelected ? 'var(--sv-cyan)' : 'var(--sv-border)'}`,
@@ -301,6 +319,7 @@ const CastVote = () => {
                 )}
               </div>
 
+              {/* Submit button — disabled until a candidate is selected or while the request is in flight */}
               <motion.button
                 whileHover={{ scale: selectedCandidate && !submitting ? 1.012 : 1 }}
                 whileTap={{ scale: selectedCandidate && !submitting ? 0.988 : 1 }}

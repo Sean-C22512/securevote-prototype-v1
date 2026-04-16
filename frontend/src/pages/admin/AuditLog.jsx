@@ -10,6 +10,7 @@ import { fetchAuditBlocks, fetchElections } from '../../api/apiClient';
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
+// Shared admin sidebar — same component duplicated across admin pages
 const AdminSidebar = ({ active, onLogout }) => {
   const links = [
     { icon: <Activity      className="w-3.5 h-3.5" />, label: 'Dashboard',       href: '/admin' },
@@ -28,6 +29,7 @@ const AdminSidebar = ({ active, onLogout }) => {
           ADMIN CONSOLE
         </p>
       </div>
+      {/* Active link gets a cyan left border to show the current page */}
       <nav className="flex-1 px-2 space-y-0.5">
         {links.map((l) => {
           const isActive = l.href === active;
@@ -61,8 +63,10 @@ const AdminSidebar = ({ active, onLogout }) => {
 
 // ─── Block Card ───────────────────────────────────────────────────────────────
 
+// Shorten a long hash string to the first 10 characters followed by "..."
 const truncateHash = (hash) => hash ? `${hash.slice(0, 10)}...` : '—';
 
+// Format an ISO timestamp into a readable "DD MMM YYYY HH:MM" string (Irish locale)
 const fmt = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -70,6 +74,8 @@ const fmt = (iso) => {
     hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
+// Visual card representing a single block in the vote chain.
+// Green border = verified, magenta border = tampered/broken.
 const BlockCard = ({ block, index: animIdx }) => {
   const verified = block.verified;
   return (
@@ -86,7 +92,7 @@ const BlockCard = ({ block, index: animIdx }) => {
         borderStyle: 'solid',
       }}
     >
-      {/* Block number + badge */}
+      {/* Block number + verified/tampered badge */}
       <div className="flex items-center justify-between mb-3">
         <span className="font-mono text-[11px] font-bold" style={{ color: 'rgba(228,235,248,0.45)' }}>
           Block #{block.index}
@@ -103,7 +109,7 @@ const BlockCard = ({ block, index: animIdx }) => {
         </span>
       </div>
 
-      {/* Fields */}
+      {/* Fields — vote ID, timestamp, truncated current hash, and previous hash */}
       <div className="space-y-2">
         <div>
           <p className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: 'rgba(228,235,248,0.30)' }}>VOTE ID</p>
@@ -115,12 +121,14 @@ const BlockCard = ({ block, index: animIdx }) => {
         </div>
         <div>
           <p className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: 'rgba(228,235,248,0.30)' }}>HASH</p>
+          {/* Hash is coloured lime if the block checks out, magenta if it has been altered */}
           <p className="font-mono text-[10px]" style={{ color: verified ? 'var(--sv-lime)' : 'var(--sv-magenta)' }}>
             {truncateHash(block.current_hash)}
           </p>
         </div>
         <div>
           <p className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: 'rgba(228,235,248,0.30)' }}>PREV</p>
+          {/* Show all zeros for the genesis (first) block's previous hash */}
           <p className="font-mono text-[10px]" style={{ color: 'rgba(228,235,248,0.40)' }}>
             {truncateHash(block.previous_hash === 'GENESIS' ? '0000000000000000' : block.previous_hash)}
           </p>
@@ -132,6 +140,7 @@ const BlockCard = ({ block, index: animIdx }) => {
 
 // ─── Table Row ────────────────────────────────────────────────────────────────
 
+// Alternative tabular view of the same block data — compact, good for large chains
 const TableView = ({ blocks }) => (
   <div className="sv-card-admin overflow-hidden">
     <table className="w-full text-left font-mono text-xs">
@@ -145,6 +154,7 @@ const TableView = ({ blocks }) => (
       </thead>
       <tbody>
         {blocks.map((b, i) => (
+          // Each row fades in with a tiny stagger for a smooth appearance
           <motion.tr
             key={b.index}
             initial={{ opacity: 0 }}
@@ -155,6 +165,7 @@ const TableView = ({ blocks }) => (
             <td className="px-4 py-3" style={{ color: 'rgba(228,235,248,0.35)' }}>{b.index}</td>
             <td className="px-4 py-3" style={{ color: 'var(--sv-cyan)' }}>{b.vote_id}</td>
             <td className="px-4 py-3" style={{ color: 'rgba(228,235,248,0.50)' }}>{fmt(b.timestamp)}</td>
+            {/* Hash cell is coloured to reflect verification status */}
             <td className="px-4 py-3" style={{ color: b.verified ? 'var(--sv-lime)' : 'var(--sv-magenta)' }}>
               {truncateHash(b.current_hash)}
             </td>
@@ -187,15 +198,24 @@ const TableView = ({ blocks }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const AuditLog = () => {
+  // Full list of elections for the election filter dropdown
   const [elections,        setElections]        = useState([]);
+  // The election_id currently selected in the filter
   const [selectedElection, setSelectedElection] = useState('');
+  // Filter blocks by verification status: '' = all, 'verified', or 'tampered'
   const [statusFilter,     setStatusFilter]     = useState('');
+  // Toggle between the visual blockchain card view and the compact table view
   const [view,             setView]             = useState('blockchain'); // 'blockchain' | 'table'
+  // The full response from the audit API, including the blocks array and summary stats
   const [blockData,        setBlockData]        = useState(null);
+  // Human-readable "X min ago" string updated every 30 seconds
   const [timeSinceScan,    setTimeSinceScan]    = useState('—');
 
+  // True during the initial page load
   const [loading,          setLoading]          = useState(true);
+  // True while the "Run Integrity Check" button request is in flight
   const [running,          setRunning]          = useState(false);
+  // Error message for the alert banner
   const [error,            setError]            = useState('');
   const navigate = useNavigate();
 
@@ -207,11 +227,12 @@ const AuditLog = () => {
         const electionsList = electionsData.elections || [];
         setElections(electionsList);
 
-        // Auto-select the most recent election
+        // Auto-select the most recent election (last item in the list)
         const first = electionsList[electionsList.length - 1];
         const defaultId = first ? first.election_id : '';
         setSelectedElection(defaultId);
 
+        // Immediately fetch the blocks for the auto-selected election
         const blocks = await fetchAuditBlocks(defaultId || null);
         setBlockData(blocks);
       } catch {
@@ -223,6 +244,8 @@ const AuditLog = () => {
     init();
   }, []);
 
+  // Re-run the integrity check against the backend, enforcing a minimum 2-second spinner
+  // so that the user can see the check is actually running rather than it flashing instantly
   const runIntegrityCheck = useCallback(async () => {
     setRunning(true);
     setError('');
@@ -249,6 +272,7 @@ const AuditLog = () => {
   useEffect(() => {
     const calc = (iso) => {
       if (!iso) return '—';
+      // Ensure the timestamp is treated as UTC even if the Z suffix is absent
       const utcIso = iso.endsWith('Z') ? iso : iso + 'Z';
       const diff = Math.round((Date.now() - new Date(utcIso)) / 60000);
       return diff < 1 ? 'just now' : `${diff} min ago`;
@@ -258,6 +282,7 @@ const AuditLog = () => {
     return () => clearInterval(interval);
   }, [blockData?.last_verified]);
 
+  // Clear session and return to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -265,15 +290,18 @@ const AuditLog = () => {
     navigate('/');
   };
 
+  // Derived values from the blockData response for use in the UI
   const blocks      = blockData?.blocks ?? [];
   const chainValid  = blockData?.chain_valid ?? true;
   const verifiedCt  = blockData?.verified_count ?? 0;
   const tamperedCt  = blockData?.tampered_count ?? 0;
   const lastVerified = blockData?.last_verified;
+  // Integrity percentage: what proportion of blocks passed verification
   const integrityPct = blockData?.total
     ? Math.round((verifiedCt / blockData.total) * 100)
     : 100;
 
+  // Pre-format the last-verified timestamp for the filter panel
   const fmtLastVerified = lastVerified
     ? new Date(lastVerified.endsWith('Z') ? lastVerified : lastVerified + 'Z').toLocaleString('en-IE', {
         day: '2-digit', month: 'short', year: 'numeric',
@@ -287,7 +315,7 @@ const AuditLog = () => {
 
       <main className="flex-1 p-8 overflow-auto">
 
-        {/* ── Header ── */}
+        {/* ── Header — title and live chain integrity badge ── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-start justify-between mb-8">
           <div>
@@ -304,7 +332,7 @@ const AuditLog = () => {
             </p>
           </div>
 
-          {/* System integrity badge */}
+          {/* System integrity badge — green when all blocks pass, magenta if any are tampered */}
           {!loading && blockData && (
             <div
               className="flex items-center gap-2 px-3 py-2 rounded font-mono text-xs font-bold flex-shrink-0 mt-1"
@@ -324,7 +352,7 @@ const AuditLog = () => {
 
         {error && <div className="sv-alert-error mb-5">{error}</div>}
 
-        {/* ── Filters ── */}
+        {/* ── Filters — election selector, status filter, and manual check button ── */}
         <div className="sv-card-admin p-5 mb-3">
           <div className="flex flex-wrap gap-3 items-end">
             <div className="flex-1 min-w-40">
@@ -347,6 +375,7 @@ const AuditLog = () => {
                 <option value="tampered">Tampered Only</option>
               </select>
             </div>
+            {/* Manual integrity check button — re-runs the full chain verification on demand */}
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={runIntegrityCheck}
@@ -360,7 +389,7 @@ const AuditLog = () => {
             </motion.button>
           </div>
 
-          {/* Last verified line */}
+          {/* Last verified line — shows the exact timestamp and anomaly count */}
           {fmtLastVerified && (
             <p className="mt-3 font-mono text-[10px]" style={{ color: 'rgba(228,235,248,0.30)' }}>
               Last Verified: {fmtLastVerified}&nbsp;
@@ -372,7 +401,7 @@ const AuditLog = () => {
           )}
         </div>
 
-        {/* ── View Toggle ── */}
+        {/* ── View Toggle — switch between the visual blockchain layout and the data table ── */}
         <div className="flex items-center gap-1 mb-5">
           {[
             { key: 'blockchain', icon: <LayoutGrid className="w-3.5 h-3.5" />, label: 'Blockchain View' },
@@ -383,6 +412,7 @@ const AuditLog = () => {
               onClick={() => setView(tab.key)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs font-semibold transition-all"
               style={{
+                // Active tab gets a solid cyan fill; inactive is transparent with a subtle border
                 background: view === tab.key ? 'var(--sv-cyan)' : 'transparent',
                 color: view === tab.key ? '#06091A' : 'rgba(228,235,248,0.40)',
                 border: `1px solid ${view === tab.key ? 'var(--sv-cyan)' : 'rgba(0,159,227,0.15)'}`,
@@ -394,7 +424,7 @@ const AuditLog = () => {
           ))}
         </div>
 
-        {/* ── Block Content ── */}
+        {/* ── Block Content — either loading, blockchain card strip, or table ── */}
         {loading ? (
           <div className="flex items-center gap-2 py-16" style={{ color: 'rgba(228,235,248,0.30)' }}>
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -403,6 +433,7 @@ const AuditLog = () => {
         ) : (
           <AnimatePresence mode="wait">
             {view === 'blockchain' ? (
+              // Horizontal scrollable row of BlockCards connected by Link2 chain icons
               <motion.div key="blockchain"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 {blocks.length === 0 ? (
@@ -417,6 +448,7 @@ const AuditLog = () => {
                       {blocks.map((block, i) => (
                         <React.Fragment key={block.index}>
                           <BlockCard block={block} index={i} />
+                          {/* Chain link icon between cards to visualise the hash-linked structure */}
                           {i < blocks.length - 1 && (
                             <div className="flex-shrink-0 flex items-center px-1"
                                  style={{ color: 'rgba(0,159,227,0.35)' }}>
@@ -438,7 +470,7 @@ const AuditLog = () => {
           </AnimatePresence>
         )}
 
-        {/* ── Summary Cards ── */}
+        {/* ── Summary Cards — four quick-look metrics below the main view ── */}
         {!loading && blockData && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
             {[
@@ -449,6 +481,7 @@ const AuditLog = () => {
                 color: 'var(--sv-lime)',
               },
               {
+                // Tampered count turns magenta only if there are actually tampered votes
                 icon: <AlertTriangle className="w-4 h-4" style={{ color: '#F59E0B' }} />,
                 label: 'Tampered Votes',
                 value: tamperedCt,
@@ -462,6 +495,7 @@ const AuditLog = () => {
                 small: true,
               },
               {
+                // SHA-256 is always 256 bits — shown as a static informational value
                 icon: <Hash className="w-4 h-4" style={{ color: 'rgba(228,235,248,0.40)' }} />,
                 label: 'Hash Length (bits)',
                 value: verifiedCt > 0 ? 256 : 0,
@@ -481,6 +515,7 @@ const AuditLog = () => {
                      style={{ color: 'rgba(228,235,248,0.28)' }}>
                     {s.label}
                   </p>
+                  {/* Use a smaller font for the "time ago" value since it is a longer string */}
                   <p className="font-display font-black"
                      style={{ fontSize: s.small ? 16 : 22, lineHeight: 1.2, color: s.color }}>
                     {s.value}

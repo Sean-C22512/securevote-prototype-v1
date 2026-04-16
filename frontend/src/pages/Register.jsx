@@ -6,26 +6,37 @@ import { register, getPasswordRequirements, fetchProgrammes } from '../api/apiCl
 import DOMPurify from 'dompurify';
 
 const Register = () => {
+  // Core form fields
   const [studentId,        setStudentId]        = useState('');
   const [password,         setPassword]         = useState('');
   const [confirmPassword,  setConfirmPassword]  = useState('');
   const [email,            setEmail]            = useState('');
+  // Feedback messages for the user
   const [error,            setError]            = useState('');
   const [success,          setSuccess]          = useState('');
+  // True while the registration API call is in flight
   const [loading,          setLoading]          = useState(false);
+  // Password rules fetched from the backend (min length, complexity, etc.)
   const [requirements,     setRequirements]     = useState(null);
 
   // Programme picker state
   const [programmes,       setProgrammes]       = useState([]);
+  // True while the programmes list is being fetched
   const [progLoading,      setProgLoading]      = useState(true);
+  // True if the fetch failed so we can offer a retry button
   const [progError,        setProgError]        = useState(false);
+  // The currently selected programme object: {code, name, faculty}
   const [selectedProg,     setSelectedProg]     = useState(null);   // {code, name, faculty}
+  // Text typed into the dropdown search box
   const [progSearch,       setProgSearch]       = useState('');
+  // Whether the dropdown list is currently open
   const [progOpen,         setProgOpen]         = useState(false);
 
+  // Ref attached to the dropdown wrapper so we can detect outside clicks
   const dropdownRef = useRef(null);
   const navigate    = useNavigate();
 
+  // Fetch the full list of TU Dublin programmes from the backend
   const loadProgrammes = () => {
     setProgLoading(true);
     setProgError(false);
@@ -34,6 +45,7 @@ const Register = () => {
       .catch(() => { setProgError(true); setProgLoading(false); });
   };
 
+  // On mount, load password requirements and the programmes list in parallel
   useEffect(() => {
     getPasswordRequirements().then(setRequirements).catch(() => {});
     loadProgrammes();
@@ -50,6 +62,7 @@ const Register = () => {
     return () => document.removeEventListener('pointerdown', handler);
   }, []);
 
+  // Filter the full list by whatever the user has typed — matches code, name, or faculty
   const filteredProgrammes = programmes.filter(p => {
     const q = progSearch.toLowerCase();
     return p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || p.faculty.toLowerCase().includes(q);
@@ -62,32 +75,38 @@ const Register = () => {
     return acc;
   }, {});
 
+  // Store the chosen programme and close the dropdown
   const handleSelectProg = (prog) => {
     setSelectedProg(prog);
     setProgSearch('');
     setProgOpen(false);
   };
 
+  // Clear the programme selection when the user clicks the X button
   const handleClearProg = (e) => {
     e.stopPropagation();
     setSelectedProg(null);
     setProgSearch('');
   };
 
+  // Validate and submit the registration form to the backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
+    // Client-side guard: passwords must match and a programme must be selected
     if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     if (!selectedProg) { setError('Please select your programme'); return; }
 
     setLoading(true);
     try {
+      // Sanitise user-supplied text before sending to the backend (XSS prevention)
       const cleanStudentId = DOMPurify.sanitize(studentId.trim());
       const cleanEmail     = email ? DOMPurify.sanitize(email.trim()) : undefined;
       await register(cleanStudentId, password, cleanEmail, { code: selectedProg.code, name: selectedProg.name });
       setSuccess('Registration successful! Redirecting to login\u2026');
+      // Brief delay so the user can read the success message before being redirected
       setTimeout(() => navigate('/'), 2000);
     } catch (err) {
       if (err?.details) {
@@ -103,7 +122,7 @@ const Register = () => {
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--sv-bg)' }}>
 
-      {/* Left panel */}
+      {/* Left panel — branding column shown only on large screens */}
       <div className="sv-login-panel hidden lg:flex flex-col justify-between p-14 relative"
            style={{ width: 400, borderRight: '1px solid rgba(0,159,227,0.08)', flexShrink: 0 }}>
         <div className="flex items-center gap-2.5">
@@ -134,12 +153,14 @@ const Register = () => {
 
       {/* Right form panel */}
       <div className="sv-bg flex-1 flex items-center justify-center p-8">
+        {/* Fade-and-slide in animation on mount */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.40, ease: 'easeOut' }}
           className="w-full max-w-sm"
         >
+          {/* Mobile logo — only visible when the left panel is hidden */}
           <div className="flex lg:hidden items-center gap-2 mb-12">
             <Gem className="w-5 h-5 text-tud-cyan" />
             <span className="font-display font-bold text-white tracking-wide">SecureVote</span>
@@ -152,6 +173,7 @@ const Register = () => {
             Register for TU Dublin Student Elections
           </p>
 
+          {/* Error and success banners — animate in when they appear */}
           {error && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                         className="sv-alert-error mb-8">
@@ -170,16 +192,17 @@ const Register = () => {
             {/* Student ID */}
             <div>
               <label className="sv-label">Student ID <span style={{ color: 'var(--sv-magenta)' }}>*</span></label>
+              {/* Force uppercase so IDs are stored consistently */}
               <input type="text" className="sv-input" value={studentId}
                 onChange={(e) => setStudentId(e.target.value.toUpperCase())}
                 required placeholder="e.g. C22512345" disabled={loading} />
             </div>
 
-            {/* Programme picker */}
+            {/* Programme picker — custom searchable dropdown grouped by faculty */}
             <div ref={dropdownRef}>
               <label className="sv-label">Programme <span style={{ color: 'var(--sv-magenta)' }}>*</span></label>
 
-              {/* Trigger */}
+              {/* Trigger — clicking this box opens or closes the dropdown */}
               <div
                 onClick={() => !loading && setProgOpen(o => !o)}
                 className="sv-input-box flex items-center justify-between cursor-pointer select-none"
@@ -196,6 +219,7 @@ const Register = () => {
                   <span className="text-sm" style={{ color: 'var(--sv-text-muted)' }}>Search your programme…</span>
                 )}
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* X button clears the current selection without reopening the dropdown */}
                   {selectedProg && (
                     <button type="button" onClick={handleClearProg}
                             className="p-0.5 rounded-sm transition-colors hover:text-white"
@@ -203,12 +227,13 @@ const Register = () => {
                       <X className="w-3 h-3" />
                     </button>
                   )}
+                  {/* Chevron rotates 180° when the dropdown is open */}
                   <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--sv-text-muted)',
                     transform: progOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
                 </div>
               </div>
 
-              {/* Dropdown */}
+              {/* Dropdown — animated in/out with Framer Motion */}
               <AnimatePresence>
                 {progOpen && (
                   <motion.div
@@ -225,7 +250,7 @@ const Register = () => {
                       marginTop: 4,
                     }}
                   >
-                    {/* Search input */}
+                    {/* Search input — autofocused so users can type immediately */}
                     <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(0,159,227,0.10)' }}>
                       <input
                         autoFocus
@@ -238,7 +263,7 @@ const Register = () => {
                       />
                     </div>
 
-                    {/* Results */}
+                    {/* Results — shows loading spinner, error/retry, empty state, or grouped list */}
                     <div style={{ maxHeight: 280, overflowY: 'auto' }}>
                       {progLoading ? (
                         <p className="text-xs text-center py-6" style={{ color: 'var(--sv-text-muted)' }}>
@@ -257,6 +282,7 @@ const Register = () => {
                           No programmes match
                         </p>
                       ) : (
+                        // Render each faculty as a group header, then list its programmes below
                         Object.entries(grouped).map(([faculty, progs]) => (
                           <div key={faculty}>
                             <p className="font-mono text-[9px] tracking-[0.14em] uppercase px-3 pt-3 pb-1"
@@ -269,6 +295,7 @@ const Register = () => {
                                 onClick={() => handleSelectProg(p)}
                                 className="flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors"
                                 style={{
+                                  // Highlight the row if this programme is already selected
                                   background: selectedProg?.code === p.code ? 'rgba(0,159,227,0.08)' : 'transparent',
                                 }}
                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,159,227,0.06)'}
@@ -290,7 +317,7 @@ const Register = () => {
               </AnimatePresence>
             </div>
 
-            {/* Email */}
+            {/* Email — optional, used for future notifications */}
             <div>
               <label className="sv-label">
                 Email <span className="normal-case font-normal" style={{ color: 'var(--sv-text-muted)', letterSpacing: 0 }}>(optional)</span>
@@ -307,6 +334,7 @@ const Register = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required placeholder="Create a strong password"
                 disabled={loading} autoComplete="new-password" />
+              {/* Show the minimum requirements hint once they've been loaded from the server */}
               {requirements && (
                 <p className="font-mono text-[10px] mt-2" style={{ color: 'var(--sv-text-muted)' }}>
                   Min {requirements.min_length} chars &middot; uppercase &middot; lowercase &middot; number
@@ -323,6 +351,7 @@ const Register = () => {
                 disabled={loading} autoComplete="new-password" />
             </div>
 
+            {/* Submit button — animates on hover/tap; disabled while submitting */}
             <motion.button
               whileHover={{ scale: loading ? 1 : 1.015 }}
               whileTap={{ scale: loading ? 1 : 0.980 }}
@@ -334,6 +363,7 @@ const Register = () => {
             </motion.button>
           </form>
 
+          {/* Link back to the login page */}
           <p className="text-center text-sm mt-10" style={{ color: 'var(--sv-text-muted)' }}>
             Already registered?{' '}
             <Link to="/" className="font-semibold"

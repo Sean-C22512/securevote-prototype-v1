@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Vote, BarChart3, Fingerprint, Gem, LogOut, ArrowRight, ShieldCheck } from 'lucide-react';
 
+// Animation variants for the action cards — each card fades in and slides up,
+// staggered by its index so they appear one after another
 const cardVariants = {
   hidden:   { opacity: 0, y: 18 },
   visible:  (i) => ({
@@ -13,9 +15,12 @@ const cardVariants = {
 
 const Dashboard = () => {
   const navigate  = useNavigate();
+  // Pull the student ID from localStorage so we can display it in the greeting
   const studentId = localStorage.getItem('studentId');
+  // Only show the biometric card if the browser supports WebAuthn (e.g. TouchID, FaceID)
   const webAuthnSupported = typeof window !== 'undefined' && !!window.PublicKeyCredential;
 
+  // Clear session data and redirect to the login page
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -23,6 +28,8 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  // Build the list of navigation cards dynamically, conditionally adding the
+  // biometric card only if this device supports WebAuthn
   const cards = [
     {
       ordinal: '01',
@@ -53,7 +60,7 @@ const Dashboard = () => {
   return (
     <div className="sv-bg min-h-screen">
 
-      {/* Nav */}
+      {/* Nav — sticky top bar with logo, student ID, role badge, and logout button */}
       <nav className="sv-nav px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -61,6 +68,7 @@ const Dashboard = () => {
             <span className="font-display font-bold text-white text-sm tracking-wide">SecureVote</span>
           </div>
           <div className="flex items-center gap-4">
+            {/* Show the logged-in student's ID on larger screens */}
             <span className="font-mono text-xs hidden sm:block" style={{ color: 'var(--sv-text-muted)' }}>
               {studentId}
             </span>
@@ -77,7 +85,7 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* Hero — personalised greeting that displays the student's ID in cyan */}
       <div className="max-w-5xl mx-auto px-6 pt-14 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
@@ -99,7 +107,7 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
-      {/* Cards */}
+      {/* Cards — one per main action; each animates in with a staggered delay */}
       <div className="max-w-5xl mx-auto px-6 pb-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map((card, i) => (
@@ -115,7 +123,7 @@ const Dashboard = () => {
                 style={{ textDecoration: 'none', display: 'block' }}
                 className="sv-card-interactive h-full p-7 group relative overflow-hidden"
               >
-                {/* Background ordinal */}
+                {/* Large faded ordinal number in the background (01, 02, 03) — purely decorative */}
                 <span
                   className="absolute top-3 right-4 font-display font-black leading-none pointer-events-none select-none"
                   style={{ fontSize: 88, color: 'rgba(0,159,227,0.05)' }}
@@ -137,7 +145,7 @@ const Dashboard = () => {
                   {card.desc}
                 </p>
 
-                {/* CTA */}
+                {/* CTA link arrow — slides right on card hover */}
                 <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tracking-[0.10em] uppercase transition-all"
                       style={{ color: 'var(--sv-cyan)' }}>
                   {card.cta} <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
@@ -147,7 +155,7 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Security footer */}
+        {/* Security footer — reassures the user that votes are encrypted and blockchain-secured */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

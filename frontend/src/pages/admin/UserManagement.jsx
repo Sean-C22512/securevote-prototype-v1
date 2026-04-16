@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gem, Activity, Users, ClipboardList, Settings, LogOut, Plus, X, Loader2 } from 'lucide-react';
 import { fetchUsers, createUser, updateUserRole } from '../../api/apiClient';
 
+// Shared admin sidebar — same component duplicated across admin pages
 const AdminSidebar = ({ active, onLogout }) => {
   const links = [
     { icon: <Activity      className="w-3.5 h-3.5" />, label: 'Dashboard',       href: '/admin' },
@@ -22,6 +23,7 @@ const AdminSidebar = ({ active, onLogout }) => {
           ADMIN CONSOLE
         </p>
       </div>
+      {/* Active link gets a cyan left border */}
       <nav className="flex-1 px-2 space-y-0.5">
         {links.map((l) => {
           const isActive = l.href === active;
@@ -53,6 +55,7 @@ const AdminSidebar = ({ active, onLogout }) => {
   );
 };
 
+// Map a role string to the corresponding CSS badge class
 const getRoleBadge = (role) => {
   switch (role) {
     case 'admin':    return 'sv-badge-admin';
@@ -62,16 +65,24 @@ const getRoleBadge = (role) => {
 };
 
 const UserManagement = () => {
+  // Full list of registered users
   const [users,      setUsers]      = useState([]);
+  // True while the user list is being fetched
   const [loading,    setLoading]    = useState(true);
+  // Error message for the red alert banner
   const [error,      setError]      = useState('');
+  // Success message for the green alert banner
   const [success,    setSuccess]    = useState('');
+  // Whether the Add User modal is currently open
   const [showModal,  setShowModal]  = useState(false);
+  // Form state for the Add User modal: student ID and intended role
   const [newUser,    setNewUser]    = useState({ studentId: '', role: 'student' });
   const navigate = useNavigate();
 
+  // Load users as soon as the page mounts
   useEffect(() => { loadUsers(); }, []);
 
+  // Fetch the full user list from the backend
   const loadUsers = async () => {
     try {
       const data = await fetchUsers();
@@ -83,6 +94,7 @@ const UserManagement = () => {
     }
   };
 
+  // Submit the Add User form — creates a stub account (no password); the user must register one themselves
   const handleAddUser = async (e) => {
     e.preventDefault();
     setError('');
@@ -92,6 +104,7 @@ const UserManagement = () => {
       setShowModal(false);
       setNewUser({ studentId: '', role: 'student' });
       loadUsers();
+      // Auto-clear the success banner after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to create user');
@@ -99,6 +112,7 @@ const UserManagement = () => {
     }
   };
 
+  // Inline role change — called when the admin changes the role dropdown on a user row
   const handleRoleChange = async (studentId, newRole) => {
     try {
       await updateUserRole(studentId, newRole);
@@ -111,6 +125,7 @@ const UserManagement = () => {
     }
   };
 
+  // Clear session and return to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -123,6 +138,7 @@ const UserManagement = () => {
       <AdminSidebar active="/admin/users" onLogout={handleLogout} />
 
       <main className="flex-1 p-8 overflow-auto">
+        {/* Page header with Add User button in the top-right */}
         <div className="flex items-center justify-between mb-10">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <p className="font-mono text-[10px] tracking-[0.16em] mb-2"
@@ -137,6 +153,7 @@ const UserManagement = () => {
               Manage accounts and role assignments
             </p>
           </motion.div>
+          {/* Opens the Add User modal */}
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -150,7 +167,7 @@ const UserManagement = () => {
         {error   && <div className="sv-alert-error mb-5">{error}</div>}
         {success && <div className="sv-alert-success mb-5">{success}</div>}
 
-        {/* Table */}
+        {/* Users table */}
         <div className="sv-card-admin overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-20"
@@ -182,6 +199,7 @@ const UserManagement = () => {
                 </thead>
                 <tbody>
                   {users.map((user, i) => (
+                    // Each row fades in with a tiny per-row delay for a staggered appearance
                     <motion.tr
                       key={user.student_id}
                       initial={{ opacity: 0 }}
@@ -200,9 +218,11 @@ const UserManagement = () => {
                         {user.email || '—'}
                       </td>
                       <td className="px-5 py-3.5">
+                        {/* Role badge uses colour-coded classes (admin/official/student) */}
                         <span className={getRoleBadge(user.role)}>{user.role}</span>
                       </td>
                       <td className="px-5 py-3.5">
+                        {/* Shows whether the user has set a password yet — stub accounts have none */}
                         {user.has_password
                           ? <span className="font-mono text-xs" style={{ color: 'var(--sv-lime)' }}>Yes</span>
                           : <span className="font-mono text-xs" style={{ color: 'rgba(228,235,248,0.25)' }}>No</span>
@@ -214,6 +234,7 @@ const UserManagement = () => {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
+                        {/* Inline role dropdown — changing the value immediately fires handleRoleChange */}
                         <select
                           className="font-mono text-xs px-2 py-1.5"
                           style={{
@@ -241,9 +262,10 @@ const UserManagement = () => {
         </div>
       </main>
 
-      {/* Add User Modal */}
+      {/* Add User Modal — animates in/out with AnimatePresence */}
       <AnimatePresence>
         {showModal && (
+          // Dark blurred backdrop — clicking outside the card closes the modal
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -269,6 +291,7 @@ const UserManagement = () => {
                 </button>
               </div>
 
+              {/* Add User form — student ID and role; no password (user must set one at registration) */}
               <form onSubmit={handleAddUser} className="space-y-5">
                 <div>
                   <label className="sv-label">Student ID</label>

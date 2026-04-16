@@ -9,6 +9,8 @@ import {
 } from '../../api/apiClient';
 import DOMPurify from 'dompurify';
 
+// Reusable animated modal wrapper — renders children inside a blurred overlay.
+// Clicking outside the white card closes the modal via onClose.
 const Modal = ({ show, onClose, title, children }) => (
   <AnimatePresence>
     {show && (
@@ -40,6 +42,7 @@ const Modal = ({ show, onClose, title, children }) => (
   </AnimatePresence>
 );
 
+// Map an election status string to the correct CSS badge class
 const statusBadge = (status) => {
   switch (status) {
     case 'active': return 'sv-badge-active';
@@ -50,32 +53,46 @@ const statusBadge = (status) => {
 };
 
 const ElectionManagement = () => {
+  // All elections returned by the API
   const [elections,          setElections]          = useState([]);
+  // True while the elections list is loading
   const [loading,            setLoading]            = useState(true);
+  // Page-level error shown in the red banner
   const [error,              setError]              = useState('');
+  // Error displayed inside the Create modal
   const [modalError,         setModalError]         = useState('');
+  // Page-level success banner (auto-clears after 3s)
   const [success,            setSuccess]            = useState('');
+  // Controls visibility of the three modals
   const [showCreateModal,    setShowCreateModal]    = useState(false);
   const [showEditModal,      setShowEditModal]      = useState(false);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
+  // The election currently being edited or whose candidates are being managed
   const [selectedElection,   setSelectedElection]   = useState(null);
+  // Form state for the Create Election modal
   const [newElection,        setNewElection]        = useState({
     title: '', description: '',
     candidates: [{ name: '', party: '' }, { name: '', party: '' }],
     eligible_programmes: [],
   });
+  // Form state for adding a single candidate in the Candidates modal
   const [newCandidate,       setNewCandidate]       = useState({ name: '', description: '' });
+  // Full list of TU Dublin programmes for the eligibility picker
   const [programmes,         setProgrammes]         = useState([]);
+  // Text typed into the programme search box
   const [progSearch,         setProgSearch]         = useState('');
+  // True = open to all students; false = restricted to specific programmes
   const [allStudents,        setAllStudents]        = useState(true);
   const navigate  = useNavigate();
   const userRole  = localStorage.getItem('role');
 
+  // Load elections and the full programme list on mount
   useEffect(() => {
     loadElections();
     fetchProgrammes().then(d => setProgrammes(d.programmes || [])).catch(() => {});
   }, []);
 
+  // Fetch the latest elections from the backend
   const loadElections = async () => {
     try {
       const data = await fetchElections();
@@ -87,13 +104,16 @@ const ElectionManagement = () => {
     }
   };
 
+  // Show a success message that disappears automatically after 3 seconds
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 
+  // Filter the programme list by whatever the user has typed in the search box
   const filteredProgrammes = programmes.filter(p => {
     const q = progSearch.toLowerCase();
     return p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q);
   });
 
+  // Toggle a programme in the eligible_programmes array for the election being created
   const toggleProgramme = (prog) => {
     const already = newElection.eligible_programmes.some(p => p.code === prog.code);
     setNewElection({
@@ -104,6 +124,7 @@ const ElectionManagement = () => {
     });
   };
 
+  // Submit the Create Election form — sanitises all text inputs before sending to the backend
   const handleCreate = async (e) => {
     e.preventDefault();
     setModalError('');
@@ -111,12 +132,14 @@ const ElectionManagement = () => {
       const payload = {
         title:       DOMPurify.sanitize(newElection.title.trim()),
         description: DOMPurify.sanitize(newElection.description.trim()),
+        // Only include candidates that have a non-empty name
         candidates:  newElection.candidates
           .filter(c => c.name.trim())
           .map(c => ({
             name:  DOMPurify.sanitize(c.name.trim()),
             party: c.party.trim() ? DOMPurify.sanitize(c.party.trim()) : undefined,
           })),
+        // Empty array means "all students"; otherwise send the specific programme list
         eligible_programmes: allStudents ? [] : newElection.eligible_programmes,
       };
 
@@ -130,6 +153,7 @@ const ElectionManagement = () => {
       flash('Election created successfully');
       setShowCreateModal(false);
       setModalError('');
+      // Reset the form to its initial blank state
       setNewElection({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }], eligible_programmes: [] });
       setAllStudents(true);
       setProgSearch('');
@@ -140,6 +164,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Submit the Edit Election form — only title and description can be changed after creation
   const handleUpdate = async (e) => {
     e.preventDefault();
     setError('');
@@ -156,6 +181,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Delete an election after a browser confirm prompt — only draft elections can be deleted
   const handleDelete = async (electionId) => {
     if (!window.confirm('Delete this election?')) return;
     try {
@@ -167,6 +193,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Transition an election from draft to active — requires at least 2 candidates
   const handleStart = async (electionId) => {
     if (!window.confirm('Start this election? Voting will begin immediately.')) return;
     try {
@@ -178,6 +205,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Transition an election from active to closed — voting immediately stops
   const handleEnd = async (electionId) => {
     if (!window.confirm('End this election? Voting will be closed.')) return;
     try {
@@ -189,6 +217,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Add a new candidate to the selected election and refresh both the list and the modal view
   const handleAddCandidate = async (e) => {
     e.preventDefault();
     setError('');
@@ -200,6 +229,7 @@ const ElectionManagement = () => {
       flash('Candidate added');
       setNewCandidate({ name: '', description: '' });
       loadElections();
+      // Re-fetch to update the candidate list inside the still-open modal
       const updated = await fetchElections();
       setSelectedElection(updated.elections.find(el => el.election_id === selectedElection.election_id));
     } catch (err) {
@@ -207,12 +237,14 @@ const ElectionManagement = () => {
     }
   };
 
+  // Remove a candidate from the selected election after confirming
   const handleRemoveCandidate = async (candidateId) => {
     if (!window.confirm('Remove this candidate?')) return;
     try {
       await removeCandidate(selectedElection.election_id, candidateId);
       flash('Candidate removed');
       loadElections();
+      // Refresh the modal's candidate list
       const updated = await fetchElections();
       setSelectedElection(updated.elections.find(el => el.election_id === selectedElection.election_id));
     } catch (err) {
@@ -220,6 +252,7 @@ const ElectionManagement = () => {
     }
   };
 
+  // Clear session and return to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -244,6 +277,7 @@ const ElectionManagement = () => {
             <Link to="/official" className="sv-btn-outline" style={{ textDecoration: 'none' }}>
               <ChevronLeft className="w-3 h-3" /> Dashboard
             </Link>
+            {/* Admin users also get a quick link to the admin panel */}
             {userRole === 'admin' && (
               <Link to="/admin" className="sv-btn-outline" style={{ textDecoration: 'none' }}>Admin</Link>
             )}
@@ -257,7 +291,7 @@ const ElectionManagement = () => {
 
       <div className="max-w-5xl mx-auto px-6 py-12">
 
-        {/* Page header */}
+        {/* Page header with Create Election button */}
         <div className="flex items-start justify-between mb-10">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
             <p className="font-mono text-[10px] tracking-[0.16em] mb-2" style={{ color: 'var(--sv-text-muted)' }}>
@@ -268,6 +302,7 @@ const ElectionManagement = () => {
               Elections
             </h1>
           </motion.div>
+          {/* Opens the Create Election modal */}
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -283,13 +318,14 @@ const ElectionManagement = () => {
         {error   && <div className="sv-alert-error mb-5">{error}</div>}
         {success && <div className="sv-alert-success mb-5">{success}</div>}
 
-        {/* List */}
+        {/* Election list — loading spinner, empty state, or grid of election cards */}
         {loading ? (
           <div className="text-center py-24">
             <Loader2 className="w-7 h-7 animate-spin mx-auto text-tud-cyan" />
           </div>
 
         ) : elections.length === 0 ? (
+          // Empty state with a shortcut to create the first election
           <div className="sv-card p-14 text-center">
             <p className="text-sm mb-6" style={{ color: 'var(--sv-text-muted)' }}>No elections yet.</p>
             <button onClick={() => setShowCreateModal(true)} className="sv-btn-primary">
@@ -298,6 +334,7 @@ const ElectionManagement = () => {
           </div>
 
         ) : (
+          // Grid of election cards — each shows the election details and lifecycle action buttons
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {elections.map((election, i) => (
               <motion.div
@@ -311,6 +348,7 @@ const ElectionManagement = () => {
                   <h3 className="font-display font-bold text-white text-sm leading-snug pr-3">
                     {election.title}
                   </h3>
+                  {/* Status badge in the corner — draft / active / closed */}
                   <span className={`${statusBadge(election.status)} shrink-0`}>{election.status}</span>
                 </div>
                 <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--sv-text-dim)' }}>
@@ -320,7 +358,9 @@ const ElectionManagement = () => {
                   {election.candidates?.length || 0} candidates
                 </p>
 
+                {/* Action buttons — vary by lifecycle status */}
                 <div className="flex flex-wrap gap-2">
+                  {/* Draft elections can be edited, have candidates managed, started, or deleted */}
                   {election.status === 'draft' && (
                     <>
                       <button
@@ -335,6 +375,7 @@ const ElectionManagement = () => {
                         style={{ padding: '7px 12px', color: 'var(--sv-text-dim)', borderColor: 'var(--sv-border)' }}>
                         <Users2 className="w-3 h-3" /> Candidates
                       </button>
+                      {/* Start button is disabled until at least 2 candidates have been added */}
                       <button
                         onClick={() => handleStart(election.election_id)}
                         disabled={!election.candidates || election.candidates.length < 2}
@@ -350,6 +391,7 @@ const ElectionManagement = () => {
                       </button>
                     </>
                   )}
+                  {/* Active elections can only be ended */}
                   {election.status === 'active' && (
                     <button
                       onClick={() => handleEnd(election.election_id)}
@@ -358,6 +400,7 @@ const ElectionManagement = () => {
                       <Square className="w-3 h-3" /> End Election
                     </button>
                   )}
+                  {/* Closed elections link through to the results page, pre-selecting this election */}
                   {election.status === 'closed' && (
                     <Link
                       to={`/official/results?election=${election.election_id}`}
@@ -390,10 +433,11 @@ const ElectionManagement = () => {
               onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
               placeholder="Describe the election&hellip;" />
           </div>
-          {/* Eligibility */}
+          {/* Eligibility — toggle between "all students" and a specific programme list */}
           <div>
             <label className="sv-label">Eligible Students</label>
             <div className="flex items-center gap-3 mb-3">
+              {/* All Students button — clears programme restrictions */}
               <button
                 type="button"
                 onClick={() => setAllStudents(true)}
@@ -401,6 +445,7 @@ const ElectionManagement = () => {
                 style={{ padding: '6px 14px', fontSize: 11 }}>
                 All Students
               </button>
+              {/* Specific Programmes button — reveals the searchable programme picker */}
               <button
                 type="button"
                 onClick={() => setAllStudents(false)}
@@ -410,9 +455,10 @@ const ElectionManagement = () => {
               </button>
             </div>
 
+            {/* Programme picker — only visible when "Specific Programmes" is selected */}
             {!allStudents && (
               <div style={{ border: '1px solid var(--sv-border)', borderRadius: 2, overflow: 'hidden' }}>
-                {/* Search */}
+                {/* Search box */}
                 <div className="flex items-center gap-2 px-3 py-2"
                      style={{ borderBottom: '1px solid var(--sv-border)', background: 'rgba(228,235,248,0.02)' }}>
                   <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--sv-text-muted)' }} />
@@ -426,7 +472,7 @@ const ElectionManagement = () => {
                   />
                 </div>
 
-                {/* Selected tags */}
+                {/* Selected programme tags — each has an X to deselect it */}
                 {newElection.eligible_programmes.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 px-3 py-2"
                        style={{ borderBottom: '1px solid var(--sv-border)' }}>
@@ -445,7 +491,7 @@ const ElectionManagement = () => {
                   </div>
                 )}
 
-                {/* List */}
+                {/* Scrollable list of matching programmes — clicking one adds or removes it */}
                 <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                   {filteredProgrammes.length === 0 ? (
                     <p className="text-xs text-center py-4" style={{ color: 'var(--sv-text-muted)' }}>No matches</p>
@@ -470,6 +516,7 @@ const ElectionManagement = () => {
                   )}
                 </div>
 
+                {/* Footer showing how many programmes are currently selected */}
                 {newElection.eligible_programmes.length > 0 && (
                   <p className="font-mono text-[10px] px-3 py-2" style={{ color: 'var(--sv-text-muted)', borderTop: '1px solid var(--sv-border)' }}>
                     {newElection.eligible_programmes.length} programme{newElection.eligible_programmes.length !== 1 ? 's' : ''} selected
@@ -479,6 +526,7 @@ const ElectionManagement = () => {
             )}
           </div>
 
+          {/* Candidate rows — start with 2 blank rows; more can be added dynamically */}
           <div>
             <label className="sv-label">Candidates (min 2)</label>
             <div className="space-y-2">
@@ -498,6 +546,7 @@ const ElectionManagement = () => {
                       updated[idx] = { ...updated[idx], party: e.target.value };
                       setNewElection({ ...newElection, candidates: updated });
                     }} />
+                  {/* Remove row button — only shown when there are more than the minimum 2 candidates */}
                   {newElection.candidates.length > 2 && (
                     <button type="button" className="sv-btn-ghost p-1"
                       onClick={() => setNewElection({ ...newElection, candidates: newElection.candidates.filter((_, i) => i !== idx) })}>
@@ -507,6 +556,7 @@ const ElectionManagement = () => {
                 </div>
               ))}
             </div>
+            {/* Inline "add candidate" text link appends a new blank row */}
             <button type="button"
               className="mt-2 font-mono text-[11px] tracking-[0.08em]"
               style={{ color: 'var(--sv-cyan)', background: 'none', border: 'none', cursor: 'pointer' }}
@@ -514,6 +564,7 @@ const ElectionManagement = () => {
               + Add candidate
             </button>
           </div>
+          {/* Error banner inside the modal — shown for validation failures or API errors */}
           {modalError && (
             <div className="sv-alert-error">
               {modalError}
@@ -521,6 +572,7 @@ const ElectionManagement = () => {
           )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => { setShowCreateModal(false); setModalError(''); }} className="sv-btn-outline flex-1">Cancel</button>
+            {/* Submit disabled until at least 2 named candidates exist */}
             <button type="submit"
               disabled={newElection.candidates.filter(c => c.name.trim()).length < 2}
               className="sv-btn-primary flex-1">
@@ -530,7 +582,7 @@ const ElectionManagement = () => {
         </form>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* Edit Modal — only allows changing the title and description of a draft election */}
       <Modal show={showEditModal && !!selectedElection} onClose={() => setShowEditModal(false)} title="Edit Election">
         {selectedElection && (
           <form onSubmit={handleUpdate} className="space-y-5">
@@ -554,7 +606,7 @@ const ElectionManagement = () => {
         )}
       </Modal>
 
-      {/* Candidates Modal */}
+      {/* Candidates Modal — add or remove candidates from a draft election */}
       <Modal
         show={showCandidateModal && !!selectedElection}
         onClose={() => { setShowCandidateModal(false); setNewCandidate({ name: '', description: '' }); }}
@@ -562,6 +614,7 @@ const ElectionManagement = () => {
       >
         {selectedElection && (
           <div>
+            {/* Inline add form at the top of the modal */}
             <form onSubmit={handleAddCandidate} className="flex gap-2 mb-6">
               <input type="text" className="sv-input-box flex-1" placeholder="Name" value={newCandidate.name}
                 onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })} required />
@@ -573,6 +626,7 @@ const ElectionManagement = () => {
             <p className="sv-label mb-3">
               Current Candidates ({selectedElection.candidates?.length || 0})
             </p>
+            {/* Empty state or scrollable list of existing candidates */}
             {!selectedElection.candidates || selectedElection.candidates.length === 0 ? (
               <p className="text-sm italic" style={{ color: 'var(--sv-text-muted)' }}>
                 No candidates yet. Add at least 2 to start the election.
@@ -592,6 +646,7 @@ const ElectionManagement = () => {
                         </p>
                       )}
                     </div>
+                    {/* REMOVE button fires a confirmation dialog before calling the API */}
                     <button
                       onClick={() => handleRemoveCandidate(candidate.id)}
                       className="font-mono text-[10px] ml-3 shrink-0 transition-colors"

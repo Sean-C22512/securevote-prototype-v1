@@ -4,7 +4,9 @@ import { motion } from 'framer-motion';
 import { Gem, Users, Vote, Link2, Settings, ClipboardList, LogOut, ArrowRight, Activity } from 'lucide-react';
 import { fetchUsers, fetchAuditStats } from '../../api/apiClient';
 
+// Shared sidebar navigation component used across all admin pages
 const AdminSidebar = ({ active, onLogout }) => {
+  // Define the nav links; the active prop lets us highlight the current page
   const links = [
     { icon: <Activity    className="w-3.5 h-3.5" />, label: 'Dashboard',       href: '/admin' },
     { icon: <Users       className="w-3.5 h-3.5" />, label: 'User Management', href: '/admin/users' },
@@ -25,7 +27,7 @@ const AdminSidebar = ({ active, onLogout }) => {
         </p>
       </div>
 
-      {/* Nav links */}
+      {/* Nav links — active link gets a cyan left border and white text */}
       <nav className="flex-1 px-2 space-y-0.5">
         {links.map((l) => {
           const isActive = l.href === active;
@@ -68,6 +70,8 @@ const AdminSidebar = ({ active, onLogout }) => {
   );
 };
 
+// Reusable stat card — displays a large metric number with a label and icon
+// The loading prop swaps the number for a dash while data is still fetching
 const StatCard = ({ label, value, icon, color, loading, delay }) => (
   <motion.div
     initial={{ opacity: 0, y: 14 }}
@@ -95,18 +99,23 @@ const StatCard = ({ label, value, icon, color, loading, delay }) => (
 );
 
 const AdminDashboard = () => {
+  // Holds the three high-level system metrics shown on this page
   const [stats,   setStats]   = useState({ users: 0, totalVotes: 0, chainValid: true });
+  // True while the stats are being fetched
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Load stats on mount
   useEffect(() => { loadStats(); }, []);
 
+  // Fetch user count and audit stats in parallel for efficiency, then combine them
   const loadStats = async () => {
     try {
       const [usersData, auditData] = await Promise.all([fetchUsers(), fetchAuditStats()]);
       setStats({
         users:      usersData.users?.length || 0,
         totalVotes: auditData.total_votes || 0,
+        // chainValid defaults to true if the field is absent (no votes yet)
         chainValid: auditData.chain_valid !== false,
       });
     } catch (err) {
@@ -116,6 +125,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Clear session and redirect to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -123,6 +133,7 @@ const AdminDashboard = () => {
     navigate('/');
   };
 
+  // Quick-action cards linking to the two main admin sub-pages
   const actionCards = [
     {
       icon:  <Users className="w-5 h-5" style={{ color: 'var(--sv-cyan)' }} />,
@@ -143,6 +154,7 @@ const AdminDashboard = () => {
       <AdminSidebar active="/admin" onLogout={handleLogout} />
 
       <main className="flex-1 p-8 overflow-auto">
+        {/* Page heading */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
           <p className="font-mono text-[10px] tracking-[0.16em] mb-2"
              style={{ color: 'rgba(228,235,248,0.25)' }}>
@@ -157,7 +169,7 @@ const AdminDashboard = () => {
           </p>
         </motion.div>
 
-        {/* Stats */}
+        {/* Stats row — three metric cards staggered in */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           <StatCard
             label="Total Users"
@@ -175,6 +187,7 @@ const AdminDashboard = () => {
             loading={loading}
             delay={0.08}
           />
+          {/* Chain Status turns magenta if any vote blocks have been tampered with */}
           <StatCard
             label="Chain Status"
             value={stats.chainValid ? 'Valid' : 'Invalid'}
@@ -188,7 +201,7 @@ const AdminDashboard = () => {
         {/* Divider */}
         <div className="mb-8" style={{ height: 1, background: 'rgba(0,159,227,0.07)' }} />
 
-        {/* Action cards */}
+        {/* Action cards — navigate to User Management and Audit Log */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {actionCards.map((card, i) => (
             <motion.div

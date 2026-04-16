@@ -6,13 +6,18 @@ import { Gem, Vote, BarChart3, ClipboardEdit, LogOut, ArrowRight,
 import { fetchElections } from '../../api/apiClient';
 
 const OfficialDashboard = () => {
+  // Counts of elections broken down by lifecycle status
   const [stats,   setStats]   = useState({ active: 0, draft: 0, closed: 0, total: 0 });
+  // True while the elections list is being fetched
   const [loading, setLoading] = useState(true);
   const navigate  = useNavigate();
+  // Read the role so we can conditionally show the Admin Panel link for admins
   const userRole  = localStorage.getItem('role');
 
+  // Load election stats on mount
   useEffect(() => { loadStats(); }, []);
 
+  // Fetch all elections and count them by status for the summary stats cards
   const loadStats = async () => {
     try {
       const data      = await fetchElections();
@@ -30,6 +35,7 @@ const OfficialDashboard = () => {
     }
   };
 
+  // Clear session and redirect to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -37,6 +43,7 @@ const OfficialDashboard = () => {
     navigate('/');
   };
 
+  // Config for the four summary metric cards — each gets its own accent colour
   const statCards = [
     { label: 'Active',  value: stats.active,  icon: <CheckCircle2 className="w-4 h-4" />, color: 'var(--sv-lime)',    bg: 'rgba(132,189,0,0.08)',   border: 'rgba(132,189,0,0.18)' },
     { label: 'Draft',   value: stats.draft,   icon: <PenSquare    className="w-4 h-4" />, color: '#fbbf24',           bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.18)' },
@@ -56,6 +63,7 @@ const OfficialDashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="sv-badge-official">Official</span>
+            {/* Admins who navigate to this page also see a quick link back to the admin panel */}
             {userRole === 'admin' && (
               <Link to="/admin" className="sv-btn-outline" style={{ textDecoration: 'none' }}>
                 Admin Panel
@@ -85,7 +93,7 @@ const OfficialDashboard = () => {
           </p>
         </motion.div>
 
-        {/* Stats grid */}
+        {/* Stats grid — four metric cards, each staggered by 70ms */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-12">
           {statCards.map((s, i) => (
             <motion.div
@@ -95,7 +103,7 @@ const OfficialDashboard = () => {
               transition={{ delay: i * 0.07 }}
               className="sv-card p-5 relative overflow-hidden"
             >
-              {/* Background ordinal */}
+              {/* Faded ordinal background number — purely decorative */}
               <span className="absolute bottom-1 right-2 font-display font-black leading-none pointer-events-none select-none"
                     style={{ fontSize: 56, color: 'rgba(228,235,248,0.03)' }}>
                 {String(i + 1).padStart(2, '0')}
@@ -108,6 +116,7 @@ const OfficialDashboard = () => {
                  style={{ color: 'var(--sv-text-muted)' }}>
                 {s.label}
               </p>
+              {/* Show a dash while loading so the layout doesn't jump */}
               <p className="font-display font-black"
                  style={{ fontSize: 36, lineHeight: 1, color: loading ? 'rgba(228,235,248,0.12)' : s.color }}>
                 {loading ? '—' : s.value}
@@ -116,7 +125,7 @@ const OfficialDashboard = () => {
           ))}
         </div>
 
-        {/* Action cards */}
+        {/* Action cards — two main sub-pages: Manage Elections and Results */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {[
             {
@@ -145,6 +154,7 @@ const OfficialDashboard = () => {
                 style={{ textDecoration: 'none', display: 'block' }}
                 className="sv-card-interactive h-full p-8 group relative overflow-hidden"
               >
+                {/* Large faded ordinal (01, 02) — decorative background element */}
                 <span className="absolute top-3 right-4 font-display font-black leading-none pointer-events-none select-none"
                       style={{ fontSize: 88, color: 'rgba(0,159,227,0.04)' }}>
                   {card.ordinal}
@@ -159,6 +169,7 @@ const OfficialDashboard = () => {
                 <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--sv-text-dim)' }}>
                   {card.desc}
                 </p>
+                {/* Arrow slides right on card hover */}
                 <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tracking-[0.10em] uppercase"
                       style={{ color: 'var(--sv-cyan)' }}>
                   Open <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />

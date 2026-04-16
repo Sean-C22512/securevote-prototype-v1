@@ -6,29 +6,42 @@ import { Gem, LogOut, Loader2, CheckCircle2, XCircle, TrendingUp, Users,
 import { fetchElections, fetchElectionResults, verifyChain } from '../../api/apiClient';
 
 const ElectionResults = () => {
+  // Available elections for the dropdown (active + closed)
   const [elections,        setElections]        = useState([]);
+  // The election_id currently selected; empty string means none chosen
   const [selectedElection, setSelectedElection] = useState('');
+  // Vote count data returned by the backend for the selected election
   const [results,          setResults]          = useState(null);
+  // The response from the blockchain verification call
   const [verification,     setVerification]     = useState(null);
+  // True while any API fetch is in progress
   const [loading,          setLoading]          = useState(true);
+  // True while the blockchain verification request is in flight
   const [verifying,        setVerifying]        = useState(false);
+  // Error message for the red alert banner
   const [error,            setError]            = useState('');
   const navigate     = useNavigate();
+  // Read the ?election= query param so we can deep-link directly to a result
   const [searchParams] = useSearchParams();
+  // Admins get the "Verify Blockchain" button; officials do not
   const userRole     = localStorage.getItem('role');
 
+  // Load elections on mount
   useEffect(() => { loadElections(); }, []);
 
+  // If the URL contains an ?election= param and the elections list has loaded, auto-select it
   useEffect(() => {
     const electionParam = searchParams.get('election');
     if (electionParam && elections.length > 0) setSelectedElection(electionParam);
   }, [searchParams, elections]);
 
+  // Whenever the selected election changes, fetch fresh results (or clear them if deselected)
   useEffect(() => {
     if (selectedElection) loadResults();
     else setResults(null);
   }, [selectedElection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch all elections and keep only those that are active or closed
   const loadElections = async () => {
     try {
       const data     = await fetchElections();
@@ -41,6 +54,7 @@ const ElectionResults = () => {
     }
   };
 
+  // Fetch the vote breakdown for the currently selected election
   const loadResults = async () => {
     setLoading(true);
     setError('');
@@ -54,6 +68,9 @@ const ElectionResults = () => {
     }
   };
 
+  // Run the blockchain integrity check for the selected election.
+  // Enforces a 2-second minimum delay so the user can see the check is running.
+  // A broken chain returns HTTP 400 with valid:false — we treat that as a result, not an error.
   const handleVerify = async () => {
     setVerifying(true);
     setError('');
@@ -75,6 +92,7 @@ const ElectionResults = () => {
     }
   };
 
+  // Clear session and return to login
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -82,11 +100,13 @@ const ElectionResults = () => {
     navigate('/');
   };
 
+  // Find the highest vote count so bar widths can be scaled relative to the leader
   const getMaxVotes = () => {
     if (!results?.results) return 0;
     return Math.max(...results.results.map(r => r.votes), 1);
   };
 
+  // Rotate through these accent colours for the candidate bars
   const barAccents = ['var(--sv-cyan)', 'var(--sv-lime)', '#004B87', 'var(--sv-magenta)'];
 
   return (
@@ -106,6 +126,7 @@ const ElectionResults = () => {
             <Link to="/official" className="sv-btn-outline" style={{ textDecoration: 'none' }}>
               <ChevronLeft className="w-3 h-3" /> Dashboard
             </Link>
+            {/* Show Admin link only if this user has the admin role */}
             {userRole === 'admin' && (
               <Link to="/admin" className="sv-btn-outline" style={{ textDecoration: 'none' }}>Admin</Link>
             )}
@@ -135,7 +156,7 @@ const ElectionResults = () => {
 
         {error && <div className="sv-alert-error mb-5">{error}</div>}
 
-        {/* Selector + Verify */}
+        {/* Selector + Verify — dropdown to pick an election, plus the admin-only verify button */}
         <div className="sv-card p-5 mb-6">
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1">
@@ -148,6 +169,7 @@ const ElectionResults = () => {
                 ))}
               </select>
             </div>
+            {/* Blockchain verification button — only visible to admin users */}
             {userRole === 'admin' && (
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -164,7 +186,7 @@ const ElectionResults = () => {
           </div>
         </div>
 
-        {/* States */}
+        {/* Conditional content — loading, prompt, or main results layout */}
         {loading && selectedElection ? (
           <div className="text-center py-20">
             <Loader2 className="w-7 h-7 animate-spin mx-auto text-tud-cyan" />
@@ -178,10 +200,11 @@ const ElectionResults = () => {
           </div>
 
         ) : results ? (
+          // Main results layout — chart on the left, stats column on the right
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              {/* Chart */}
+              {/* Chart — one horizontal bar per candidate, animated from 0 to full width */}
               <div className="lg:col-span-2 sv-card p-8">
                 <h2 className="font-display font-bold text-white mb-8" style={{ fontSize: 18 }}>
                   Vote Distribution
@@ -189,6 +212,7 @@ const ElectionResults = () => {
                 {results.results && results.results.length > 0 ? (
                   <div className="space-y-7">
                     {results.results.map((candidate, i) => {
+                      // Calculate percentage share and bar width relative to the leader
                       const pct  = results.total_votes > 0
                         ? ((candidate.votes / results.total_votes) * 100).toFixed(1) : 0;
                       const barW = getMaxVotes() > 0
@@ -211,6 +235,7 @@ const ElectionResults = () => {
                               )}
                             </div>
                           </div>
+                          {/* Animated bar — grows from 0 to the correct width on mount */}
                           <div className="h-1.5 rounded-sm overflow-hidden"
                                style={{ background: 'rgba(228,235,248,0.06)' }}>
                             <motion.div
@@ -231,7 +256,7 @@ const ElectionResults = () => {
                 )}
               </div>
 
-              {/* Stats */}
+              {/* Stats column — total votes, election status, and current leader */}
               <div className="space-y-4">
                 <div className="sv-card p-6 text-center">
                   <div className="w-9 h-9 flex items-center justify-center mx-auto mb-3"
@@ -245,6 +270,7 @@ const ElectionResults = () => {
                     {results.total_votes || 0}
                   </p>
                 </div>
+                {/* Status badge — green "Live" or grey "Closed" */}
                 <div className="sv-card p-6 text-center">
                   <p className="font-mono text-[10px] tracking-[0.14em] uppercase mb-3"
                      style={{ color: 'var(--sv-text-muted)' }}>Status</p>
@@ -253,6 +279,7 @@ const ElectionResults = () => {
                     : <span className="sv-badge-closed" style={{ fontSize: 11, padding: '5px 14px' }}>Closed</span>
                   }
                 </div>
+                {/* Leading candidate — backend returns results sorted by votes descending */}
                 {results.results && results.results.length > 0 && (
                   <div className="sv-card p-6 text-center">
                     <div className="w-9 h-9 flex items-center justify-center mx-auto mb-3"
@@ -269,12 +296,13 @@ const ElectionResults = () => {
               </div>
             </div>
 
-            {/* Verification result */}
+            {/* Verification result — only shown after the admin has clicked "Verify Blockchain" */}
             {verification && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="sv-card p-6"
+                // Border colour reflects chain validity — green if intact, magenta if broken
                 style={{ borderColor: verification.valid ? 'rgba(132,189,0,0.30)' : 'rgba(200,0,90,0.30)' }}
               >
                 <div className="flex items-center gap-3 mb-5"
@@ -289,6 +317,7 @@ const ElectionResults = () => {
                       : 'Verification failed — potential tampering detected'}
                   </p>
                 </div>
+                {/* Three detail cells: blocks verified, chain status, and verification time or breach block */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: 'Blocks Verified',   value: verification.valid

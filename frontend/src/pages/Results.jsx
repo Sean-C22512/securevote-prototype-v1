@@ -5,19 +5,28 @@ import { Gem, LogOut, BarChart3, Loader2, TrendingUp, Users } from 'lucide-react
 import { fetchElections, fetchElectionResults } from '../api/apiClient';
 
 const Results = () => {
+  // List of elections available to view results for
   const [elections,        setElections]        = useState([]);
+  // The election_id string selected in the dropdown; empty string means none chosen
   const [selectedElection, setSelectedElection] = useState('');
+  // The results object returned by the backend for the chosen election
   const [results,          setResults]          = useState(null);
+  // True while any data fetch is in progress
   const [loading,          setLoading]          = useState(true);
+  // Error message shown in the red alert banner
   const [error,            setError]            = useState('');
   const navigate = useNavigate();
 
+  // Load the elections list on first render
   useEffect(() => { loadElections(); }, []);
 
+  // Whenever the selected election changes, automatically fetch its results
   useEffect(() => {
     if (selectedElection) loadResults();
   }, [selectedElection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch elections and filter to those the current user is allowed to see results for.
+  // Students only see closed elections; officials/admins can also see active ones.
   const loadElections = async () => {
     try {
       const data    = await fetchElections();
@@ -26,6 +35,7 @@ const Results = () => {
         e.status === 'closed' || (e.status === 'active' && role !== 'student')
       );
       setElections(visible);
+      // If there is only one election, auto-select it so the user lands straight on the chart
       if (visible.length === 1) setSelectedElection(visible[0].election_id);
     } catch {
       setError('Failed to load elections');
@@ -34,6 +44,7 @@ const Results = () => {
     }
   };
 
+  // Fetch the vote counts and candidate details for the currently selected election
   const loadResults = async () => {
     setLoading(true);
     try {
@@ -46,6 +57,7 @@ const Results = () => {
     }
   };
 
+  // Clear session and return to the login page
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -53,11 +65,13 @@ const Results = () => {
     navigate('/');
   };
 
+  // Find the highest vote count so we can scale the bar chart bars relative to the leader
   const getMaxVotes = () => {
     if (!results?.results) return 0;
     return Math.max(...results.results.map(r => r.votes), 1);
   };
 
+  // Rotate through these accent colours for consecutive candidate bars
   const barAccents = ['var(--sv-cyan)', 'var(--sv-lime)', '#004B87', 'var(--sv-magenta)'];
 
   return (
@@ -84,6 +98,7 @@ const Results = () => {
                   style={{ color: 'var(--sv-text-muted)', textDecoration: 'none' }}>
               Vote
             </Link>
+            {/* "Results" is highlighted to show this is the active page */}
             <span className="font-mono text-[11px] tracking-[0.10em] uppercase" style={{ color: 'var(--sv-cyan)' }}>
               Results
             </span>
@@ -112,7 +127,7 @@ const Results = () => {
 
         {error && <div className="sv-alert-error mb-6">{error}</div>}
 
-        {/* Election selector */}
+        {/* Election selector — only shown when there are multiple elections to choose from */}
         {elections.length > 1 && (
           <div className="sv-card p-5 mb-8">
             <label className="sv-label">Select Election</label>
@@ -131,7 +146,7 @@ const Results = () => {
           </div>
         )}
 
-        {/* States */}
+        {/* Conditional content — loading spinner, empty state, prompt, or the results chart */}
         {loading ? (
           <div className="text-center py-24">
             <Loader2 className="w-7 h-7 animate-spin mx-auto mb-4 text-tud-cyan" />
@@ -152,12 +167,13 @@ const Results = () => {
           </div>
 
         ) : results ? (
+          // Main results view — chart panel on the left, summary stats on the right
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-5"
           >
-            {/* Chart panel */}
+            {/* Chart panel — shows one horizontal bar per candidate */}
             <div className="lg:col-span-2 sv-card p-8">
               <h2 className="font-display font-bold text-white mb-8" style={{ fontSize: 18 }}>
                 {results.title || 'Vote Distribution'}
@@ -166,6 +182,7 @@ const Results = () => {
               {results.results && results.results.length > 0 ? (
                 <div className="space-y-7">
                   {results.results.map((candidate, i) => {
+                    // Calculate percentage share and bar width relative to the leader
                     const pct  = results.total_votes > 0
                       ? ((candidate.votes / results.total_votes) * 100).toFixed(1)
                       : 0;
@@ -190,6 +207,7 @@ const Results = () => {
                             )}
                           </div>
                         </div>
+                        {/* Animated bar — grows from 0 to the correct width on mount */}
                         <div className="h-1.5 rounded-sm overflow-hidden"
                              style={{ background: 'rgba(228,235,248,0.06)' }}>
                           <motion.div
@@ -210,7 +228,7 @@ const Results = () => {
               )}
             </div>
 
-            {/* Stats column */}
+            {/* Stats column — total votes, election status, and current leader */}
             <div className="space-y-4">
               <div className="sv-card p-6 text-center">
                 <div className="w-9 h-9 flex items-center justify-center mx-auto mb-3"
@@ -227,6 +245,7 @@ const Results = () => {
                 </p>
               </div>
 
+              {/* Status badge — green "Live" for active, grey "Closed" for ended elections */}
               <div className="sv-card p-6 text-center">
                 <p className="font-mono text-[10px] tracking-[0.14em] uppercase mb-3"
                    style={{ color: 'var(--sv-text-muted)' }}>
@@ -238,6 +257,7 @@ const Results = () => {
                 }
               </div>
 
+              {/* Leading candidate card — only shown once at least one vote has been cast */}
               {results.results && results.results.length > 0 && results.total_votes > 0 && (
                 <div className="sv-card p-6 text-center">
                   <div className="w-9 h-9 flex items-center justify-center mx-auto mb-3"
@@ -248,6 +268,7 @@ const Results = () => {
                      style={{ color: 'var(--sv-text-muted)' }}>
                     Leading
                   </p>
+                  {/* The backend returns results sorted by votes descending, so index 0 is always the leader */}
                   <p className="font-display font-bold text-white text-base">
                     {results.results[0]?.name}
                   </p>

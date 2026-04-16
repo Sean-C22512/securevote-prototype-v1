@@ -5,16 +5,22 @@ import { ArrowRight, Fingerprint, Gem } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { login, webAuthnLoginBegin, webAuthnLoginComplete } from '../api/apiClient';
 
+// Check once at module level whether this browser supports WebAuthn (PassKeys / biometrics)
 const supportsWebAuthn = typeof window !== 'undefined' && !!window.PublicKeyCredential;
 
 const Login = () => {
+  // Track the values typed into the Student ID and password fields
   const [studentId, setStudentId]           = useState('');
   const [password, setPassword]             = useState('');
+  // Error message shown in the red alert banner
   const [error, setError]                   = useState('');
+  // True while the normal password login API call is in flight
   const [loading, setLoading]               = useState(false);
+  // True while the biometric login flow is waiting for the device authenticator
   const [biometricLoading, setBiometricLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Send the user to the correct dashboard based on their role after login
   const routeByRole = (role) => {
     switch (role) {
       case 'admin':    navigate('/admin');     break;
@@ -23,12 +29,14 @@ const Login = () => {
     }
   };
 
+  // Persist the JWT token and user info in localStorage so they survive page refreshes
   const storeSession = (data) => {
     localStorage.setItem('token',     data.token);
     localStorage.setItem('role',      data.role);
     localStorage.setItem('studentId', data.student_id);
   };
 
+  // Handle normal username + password form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -44,6 +52,8 @@ const Login = () => {
     }
   };
 
+  // Handle biometric (WebAuthn) login — requires the student ID to be filled in first
+  // Step 1: ask the backend for a challenge, Step 2: prompt the device, Step 3: verify the response
   const handleBiometricLogin = async () => {
     if (!studentId.trim()) {
       setError('Enter your Student ID above before using biometric login.');
@@ -68,6 +78,7 @@ const Login = () => {
     }
   };
 
+  // Combine both loading states so we can disable all inputs while any request is in flight
   const busy = loading || biometricLoading;
 
   return (
@@ -112,13 +123,14 @@ const Login = () => {
 
       {/* ── Right form panel ── */}
       <div className="sv-bg flex-1 flex items-center justify-center p-8">
+        {/* Fade-and-slide in animation on mount */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.40, ease: 'easeOut' }}
           className="w-full max-w-sm"
         >
-          {/* Mobile logo */}
+          {/* Mobile logo — only shown when the left panel is hidden */}
           <div className="flex lg:hidden items-center gap-2 mb-12">
             <Gem className="w-5 h-5 text-tud-cyan" />
             <span className="font-display font-bold text-white tracking-wide">SecureVote</span>
@@ -131,6 +143,7 @@ const Login = () => {
             TU Dublin Student Elections
           </p>
 
+          {/* Animated error banner — only rendered when there is an error message */}
           {error && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -141,9 +154,11 @@ const Login = () => {
             </motion.div>
           )}
 
+          {/* Password login form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
               <label className="sv-label">Student ID</label>
+              {/* Force uppercase input so IDs like C22512345 are consistent */}
               <input
                 type="text"
                 className="sv-input"
@@ -170,6 +185,7 @@ const Login = () => {
               />
             </div>
 
+            {/* Submit button — scales slightly on hover/tap for tactile feel; freezes scale when busy */}
             <motion.button
               whileHover={{ scale: busy ? 1 : 1.015 }}
               whileTap={{ scale: busy ? 1 : 0.980 }}
@@ -181,14 +197,17 @@ const Login = () => {
             </motion.button>
           </form>
 
+          {/* Biometric login section — only rendered if the browser supports WebAuthn */}
           {supportsWebAuthn && (
             <>
+              {/* Visual divider between the two login methods */}
               <div className="sv-divider my-8 flex items-center justify-center">
                 <span className="font-mono text-[10px] px-4 tracking-[0.14em]"
                       style={{ color: 'var(--sv-text-muted)', background: 'var(--sv-bg)', position: 'relative', zIndex: 1 }}>
                   OR
                 </span>
               </div>
+              {/* Biometric login button — triggers WebAuthn challenge flow */}
               <motion.button
                 whileHover={{ scale: busy ? 1 : 1.015 }}
                 whileTap={{ scale: busy ? 1 : 0.980 }}
@@ -203,6 +222,7 @@ const Login = () => {
             </>
           )}
 
+          {/* Link to registration page for users who don't yet have an account */}
           <p className="text-center text-sm mt-10" style={{ color: 'var(--sv-text-muted)' }}>
             No account?{' '}
             <Link to="/register"
