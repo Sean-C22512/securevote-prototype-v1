@@ -281,7 +281,7 @@ const ElectionResults = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Blocks Verified', value: verification.blocks_verified || 0 },
+                    { label: 'Blocks Verified', value: verification.total_votes || verification.blocks_verified || 0 },
                     { label: 'Hash Chain',       value: verification.valid ? 'Intact' : 'Broken' },
                     { label: 'Verified At',      value: new Date().toLocaleTimeString() },
                   ].map((s) => (
