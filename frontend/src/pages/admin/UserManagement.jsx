@@ -95,6 +95,7 @@ const UserManagement = () => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to create user');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -106,6 +107,7 @@ const UserManagement = () => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err?.error || 'Failed to update role');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
