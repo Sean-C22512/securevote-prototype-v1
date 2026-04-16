@@ -140,9 +140,25 @@ def register():
     # Check if user already exists
     existing = users_collection.find_one({'student_id': student_id})
     if existing:
-        return jsonify({'error': 'User already exists'}), 409
+        # Allow admin-provisioned accounts (no password yet) to complete registration
+        if existing.get('password_hash'):
+            return jsonify({'error': 'User already exists'}), 409
 
-    # Hash password and create user
+        password_hash = hash_password(password)
+        users_collection.update_one(
+            {'student_id': student_id},
+            {'$set': {
+                'password_hash': password_hash,
+                'email': email or existing.get('email'),
+                'programme': {'code': programme['code'], 'name': programme['name']},
+            }}
+        )
+        return jsonify({
+            'message': 'Registration successful',
+            'student_id': student_id
+        }), 201
+
+    # Hash password and create new user
     password_hash = hash_password(password)
 
     user = {
