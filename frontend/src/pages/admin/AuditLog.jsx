@@ -192,6 +192,7 @@ const AuditLog = () => {
   const [statusFilter,     setStatusFilter]     = useState('');
   const [view,             setView]             = useState('blockchain'); // 'blockchain' | 'table'
   const [blockData,        setBlockData]        = useState(null);
+  const [timeSinceScan,    setTimeSinceScan]    = useState('—');
 
   const [loading,          setLoading]          = useState(true);
   const [running,          setRunning]          = useState(false);
@@ -226,7 +227,10 @@ const AuditLog = () => {
     setRunning(true);
     setError('');
     try {
-      const blocks = await fetchAuditBlocks(selectedElection || null, statusFilter);
+      const [blocks] = await Promise.all([
+        fetchAuditBlocks(selectedElection || null, statusFilter),
+        new Promise(resolve => setTimeout(resolve, 2000)), // minimum 2s visual feedback
+      ]);
       setBlockData(blocks);
     } catch {
       setError('Integrity check failed');
@@ -240,6 +244,18 @@ const AuditLog = () => {
     if (!loading) runIntegrityCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedElection, statusFilter]);
+
+  // Live-update "time since last scan" every 30s
+  useEffect(() => {
+    const calc = (iso) => {
+      if (!iso) return '—';
+      const diff = Math.round((Date.now() - new Date(iso)) / 60000);
+      return diff < 1 ? 'just now' : `${diff} min ago`;
+    };
+    setTimeSinceScan(calc(blockData?.last_verified));
+    const interval = setInterval(() => setTimeSinceScan(calc(blockData?.last_verified)), 30000);
+    return () => clearInterval(interval);
+  }, [blockData?.last_verified]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -263,13 +279,6 @@ const AuditLog = () => {
         hour: '2-digit', minute: '2-digit', hour12: false,
       })
     : null;
-
-  const timeSinceScan = lastVerified
-    ? (() => {
-        const diff = Math.round((Date.now() - new Date(lastVerified)) / 60000);
-        return diff < 1 ? 'just now' : `${diff} min ago`;
-      })()
-    : '—';
 
   return (
     <div className="min-h-screen flex sv-bg-admin">
