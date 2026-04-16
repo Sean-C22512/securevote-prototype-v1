@@ -321,7 +321,6 @@ const AuditLog = () => {
               <label className="sv-label">Election</label>
               <select className="sv-input-box" value={selectedElection}
                 onChange={e => setSelectedElection(e.target.value)}>
-                <option value="">All Elections</option>
                 {elections.map(e => (
                   <option key={e.election_id} value={e.election_id}>
                     {e.title} ({e.status})
