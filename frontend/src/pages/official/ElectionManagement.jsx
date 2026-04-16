@@ -53,6 +53,7 @@ const ElectionManagement = () => {
   const [elections,          setElections]          = useState([]);
   const [loading,            setLoading]            = useState(true);
   const [error,              setError]              = useState('');
+  const [modalError,         setModalError]         = useState('');
   const [success,            setSuccess]            = useState('');
   const [showCreateModal,    setShowCreateModal]    = useState(false);
   const [showEditModal,      setShowEditModal]      = useState(false);
@@ -105,7 +106,7 @@ const ElectionManagement = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    setError('');
+    setModalError('');
     try {
       const payload = {
         title:       DOMPurify.sanitize(newElection.title.trim()),
@@ -118,16 +119,24 @@ const ElectionManagement = () => {
           })),
         eligible_programmes: allStudents ? [] : newElection.eligible_programmes,
       };
-      if (payload.candidates.length < 2) { setError('At least 2 candidates are required'); return; }
+
+      // Frontend validation with specific messages
+      if (!payload.title) { setModalError('Please enter an election title.'); return; }
+      if (payload.candidates.length < 2) { setModalError('At least 2 candidates are required.'); return; }
+      const names = payload.candidates.map(c => c.name.toLowerCase());
+      if (new Set(names).size !== names.length) { setModalError('Candidate names must be unique — remove duplicate entries.'); return; }
+
       await createElection(payload);
       flash('Election created successfully');
       setShowCreateModal(false);
+      setModalError('');
       setNewElection({ title: '', description: '', candidates: [{ name: '', party: '' }, { name: '', party: '' }], eligible_programmes: [] });
       setAllStudents(true);
       setProgSearch('');
       loadElections();
     } catch (err) {
-      setError(err?.error || 'Failed to create election');
+      const msg = err?.error || err?.message || 'Failed to create election';
+      setModalError(msg);
     }
   };
 
@@ -505,8 +514,13 @@ const ElectionManagement = () => {
               + Add candidate
             </button>
           </div>
+          {modalError && (
+            <div className="sv-alert-error">
+              {modalError}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setShowCreateModal(false)} className="sv-btn-outline flex-1">Cancel</button>
+            <button type="button" onClick={() => { setShowCreateModal(false); setModalError(''); }} className="sv-btn-outline flex-1">Cancel</button>
             <button type="submit"
               disabled={newElection.candidates.filter(c => c.name.trim()).length < 2}
               className="sv-btn-primary flex-1">
