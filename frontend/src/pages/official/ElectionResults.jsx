@@ -58,7 +58,10 @@ const ElectionResults = () => {
     setVerifying(true);
     setError('');
     try {
-      const result = await verifyChain(selectedElection);
+      const [result] = await Promise.all([
+        verifyChain(selectedElection),
+        new Promise(resolve => setTimeout(resolve, 2000)),
+      ]);
       setVerification(result);
     } catch {
       setError('Verification failed');
