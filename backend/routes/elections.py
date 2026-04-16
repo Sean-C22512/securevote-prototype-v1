@@ -243,7 +243,7 @@ def update_election(election_id):
 
 
 @elections_bp.route('/<election_id>', methods=['DELETE'])
-@require_role('admin')
+@require_role(['official', 'admin'])
 def delete_election(election_id):
     """
     Delete an election.
