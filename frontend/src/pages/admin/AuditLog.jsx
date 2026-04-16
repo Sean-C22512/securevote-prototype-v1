@@ -198,15 +198,20 @@ const AuditLog = () => {
   const [error,            setError]            = useState('');
   const navigate = useNavigate();
 
-  // Load elections + initial block data
+  // Load elections + auto-select the most recent one
   useEffect(() => {
     const init = async () => {
       try {
-        const [electionsData, blocks] = await Promise.all([
-          fetchElections(),
-          fetchAuditBlocks(),
-        ]);
-        setElections(electionsData.elections || []);
+        const electionsData = await fetchElections();
+        const electionsList = electionsData.elections || [];
+        setElections(electionsList);
+
+        // Auto-select the most recent election
+        const first = electionsList[electionsList.length - 1];
+        const defaultId = first ? first.election_id : '';
+        setSelectedElection(defaultId);
+
+        const blocks = await fetchAuditBlocks(defaultId || null);
         setBlockData(blocks);
       } catch {
         setError('Failed to load audit data');
