@@ -148,17 +148,19 @@ const ElectionResults = () => {
                 ))}
               </select>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              onClick={handleVerify}
-              disabled={!selectedElection || verifying}
-              className="sv-btn-primary shrink-0"
-            >
-              {verifying
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying&hellip;</>
-                : <><Link2 className="w-3.5 h-3.5" /> Verify Blockchain</>
-              }
-            </motion.button>
+            {userRole === 'admin' && (
+              <motion.button
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                onClick={handleVerify}
+                disabled={!selectedElection || verifying}
+                className="sv-btn-primary shrink-0"
+              >
+                {verifying
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying&hellip;</>
+                  : <><Link2 className="w-3.5 h-3.5" /> Verify Blockchain</>
+                }
+              </motion.button>
+            )}
           </div>
         </div>
 
