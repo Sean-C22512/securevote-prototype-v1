@@ -103,10 +103,10 @@ const Results = () => {
             ELECTION RESULTS
           </p>
           <h1 className="font-display font-black text-white" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', letterSpacing: '-0.02em' }}>
-            Live Results
+            Results
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--sv-text-dim)' }}>
-            View results for active and completed elections
+            View results for completed elections
           </p>
         </motion.div>
 

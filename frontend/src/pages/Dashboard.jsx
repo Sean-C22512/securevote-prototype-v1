@@ -35,8 +35,8 @@ const Dashboard = () => {
     {
       ordinal: '02',
       icon:    <BarChart3 className="w-5 h-5" style={{ color: 'var(--sv-cyan)' }} />,
-      title:   'View Results',
-      desc:    'See live vote counts and election results in real time.',
+      title:   'Results',
+      desc:    'View results for completed elections.',
       cta:     'View Results',
       href:    '/results',
     },

@@ -129,8 +129,8 @@ const OfficialDashboard = () => {
             {
               ordinal: '02',
               icon:    <BarChart3 className="w-5 h-5" style={{ color: 'var(--sv-cyan)' }} />,
-              title:   'View Results',
-              desc:    'Detailed election results, live vote counts, and blockchain integrity verification.',
+              title:   'Results',
+              desc:    'View results for active and completed elections, and blockchain integrity verification.',
               href:    '/official/results',
             },
           ].map((card, i) => (
