@@ -496,9 +496,15 @@ def audit_stats():
     # Count unique voters for this election
     unique_voters = len(votes_collection.distinct('student_id', {'election_id': election_id}))
 
-    # Verify chain integrity
+    # Verify chain integrity — in global mode use the most recent election
+    if global_mode:
+        most_recent = elections_collection.find_one({}, sort=[('created_at', -1)])
+        chain_election_id = most_recent['election_id'] if most_recent else election_id
+    else:
+        chain_election_id = election_id
+
     chain_votes = list(votes_collection.find(
-        {'election_id': election_id},
+        {'election_id': chain_election_id},
         sort=[('timestamp', 1)]
     ))
     chain_result = ballot_crypto.verify_chain(chain_votes) if chain_votes else {'valid': True, 'verified_count': 0}
